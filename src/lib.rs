@@ -19,6 +19,63 @@ pub enum Piece {
 
 use Piece::*;
 
+pub struct Move {
+    piece: Piece,
+    start: i32,
+    end: i32
+}
+
+struct Square {
+    column: i32,
+    row: i32,
+    index: i32
+}
+
+impl Square {
+    fn from_index(index: i32) -> Square {
+        if index < 0 || index > 63 {
+            panic!("Invalid index passed: {}", index)
+        }
+
+        Square {
+            column: index % 8,
+            row: index / 8,
+            index
+        }
+    }
+
+    fn from_coord(row: i32, column: i32) -> Square {
+        if row < 0 || row > 63 || column < 0 || column > 63 {
+            panic!("Invalid row and/or column passed:\nrow: {}\ncolumn: {}", row, column)
+        }
+
+        Square {
+            column,
+            row,
+            index: (row * 8)
+        }
+    }
+
+    fn from_str(coords: &[char]) -> Result<Square, String> {
+        let column = match &coords[1] {
+            'a' | '0' => Ok(0),
+            'b' | '1' => Ok(1),
+            'c' | '2' => Ok(2),
+            'd' | '3' => Ok(3),
+            'e' | '4' => Ok(4),
+            'f' | '5' => Ok(5),
+            'g' | '6' => Ok(6),
+            'h' | '7' => Ok(7),
+            _ => Err("Invalid column letter")
+        }?;
+        let row = coords[2].to_digit(10).ok_or("Invalid row number")? as i32;
+
+        let index = ((row-1) * 8) + column;
+
+        Ok(Square::from_index(index))
+    }
+}
+
 // Board indexes will start at bottom left.
 pub struct Board {
     pub pieces: [Piece; 64],
@@ -73,6 +130,44 @@ impl Board {
         // Terminal displays top to bottom, but board is bottom to top. So lines must be reversed
         board_string.lines().rev().map(|line| String::from(line) + "\n").collect()
     }
+
+    pub fn move_piece(move_string: &str) -> Result<(), &str> {
+        Ok(())
+    }
+}
+
+fn index_from_piece(piece: &Piece, desired_move: i32, board: &Board) {
+    let _ = board.pieces.iter().enumerate().filter(|(index, value)| {
+        matches!(value, piece)
+    });
+}
+
+pub fn parse_strmove(move_string: &str, board: &Board) -> Result<Move, String> {
+    if !(move_string.is_ascii()) {
+        return Err(String::from("String passed was not ascii"))
+    };
+
+    let char_vec: Vec<char> = move_string.chars().collect();
+
+    let rest = match char_vec.len() {
+        3 => {
+            let piece = char_vec[0];
+            let index = Square::from_str(&char_vec[1..3])?;
+
+            Ok(())
+        },
+        5 => {
+
+            Ok(())
+        },
+        length => Err(String::from("Invalid length passed."))
+    };
+
+    Ok(Move {
+        piece: Piece::Empty,
+        start: 0,
+        end: 0
+    })
 }
 
 #[cfg(test)]
