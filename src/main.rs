@@ -1,3 +1,7 @@
+use chess::{Board, Colour, Piece};
+
 fn main() {
-    println!("Hi");
+    let board = Board::new();
+    println!("{}", board.as_string())
+
 }
