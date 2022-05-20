@@ -1,6 +1,6 @@
 use ansi_term::{Colour as TermColour, Style};
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Colour {
     White,
     Black,
@@ -8,7 +8,7 @@ pub enum Colour {
 
 use Colour::*;
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Piece {
     Empty,
     // For empty spaces on the board
@@ -37,19 +37,19 @@ impl Piece {
 use Piece::*;
 
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 struct Coord {
     row: i32,
     column: i32,
 }
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 struct Square {
     coord: Coord,
     index: i32,
 }
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub struct Move {
     piece: Piece,
     start: Square,
@@ -77,13 +77,13 @@ impl Square {
         }
 
         Square {
-            index: (coord.column * 8) + coord.row,
+            index: (coord.row * 8) + coord.column,
             coord: *coord,
         }
     }
 
     fn from_str(coords: &[char]) -> Result<Square, String> {
-        let column = match &coords[1] {
+        let column = match &coords[0] {
             'a' | '0' => Ok(0),
             'b' | '1' => Ok(1),
             'c' | '2' => Ok(2),
@@ -94,12 +94,12 @@ impl Square {
             'h' | '7' => Ok(7),
             _ => Err("Invalid column letter")
         }?;
-        let row = coords[2].to_digit(10).ok_or("Row was not a number")? as i32;
+        let row = coords[1].to_digit(10).ok_or("Row was not a number")? as i32;
         if !(0..=7).contains(&row) {
             return Err(String::from("Row was not 0 to 7"));
         }
 
-        let index = ((row - 1) * 8) + column;
+        let index = (row * 8) + column;
 
         Ok(Square::from_index(index))
     }
@@ -162,7 +162,8 @@ impl Board {
         board_string.lines().rev().map(|line| String::from(line) + "\n").collect()
     }
 
-    pub fn move_piece(move_string: &str) -> Result<(), &str> {
+    pub fn move_piece(&self, _move: Move) -> Result<(), String> {
+        println!("{:#?}", _move);
         Ok(())
     }
 }
@@ -298,6 +299,7 @@ fn locate_from_target_move(piece: &Piece, desired_square: Square, board: &Board)
 
 fn validate_move(_move: Move) -> bool {
     let valid_moves = get_piece_moves(&_move.piece, _move.start.index);
+    println!("{:#?}", valid_moves);
     valid_moves.contains(&_move)
 }
 
@@ -312,6 +314,9 @@ pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> 
         3 => {
             let piece_type = Piece::from_char(char_vec[0], board).ok_or_else(|| String::from("Invalid piece type"))?;
             let end_square = Square::from_str(&char_vec[1..3])?;
+
+            println!("{:#?}", piece_type);
+            println!("{:#?}", end_square);
 
             let start_square = locate_from_target_move(&piece_type, end_square, board)
                 .ok_or_else(|| String::from("Could not evaluate move, try specifying a starting square. E.g. rb3b5"))?;
@@ -337,6 +342,8 @@ pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> 
                 end: end_square
             };
 
+            println!("{:#?}", new_move);
+
             if validate_move(new_move) {
                 Ok(new_move)
             } else {
@@ -350,11 +357,30 @@ pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> 
 
 #[cfg(test)]
 mod tests {
-    use crate::Board;
+    use crate::{Board, Square};
 
     #[test]
     fn board() {
         let board = Board::new();
         println!("{}", board.as_string());
+    }
+
+    #[test]
+    fn square() {
+        let indexed_square1 = Square::from_index(0).coord;
+        assert_eq!(indexed_square1.row, 0);
+        assert_eq!(indexed_square1.column, 0);
+
+        let indexed_square2 = Square::from_index(8).coord;
+        assert_eq!(indexed_square2.row, 1);
+        assert_eq!(indexed_square2.column, 0);
+
+        let indexed_square3 = Square::from_index(5).coord;
+        assert_eq!(indexed_square3.row, 0);
+        assert_eq!(indexed_square3.column, 5);
+
+        let indexed_square4 = Square::from_index(19).coord;
+        assert_eq!(indexed_square4.row, 2);
+        assert_eq!(indexed_square4.column, 3)
     }
 }
