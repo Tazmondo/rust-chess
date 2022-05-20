@@ -53,24 +53,25 @@ impl Board {
             }
 
             let piece_char = match piece {
-                Empty => format!("{}", TermColour::Green.paint("#")),
-                Pawn(White) => format!("{}", self.term_white.paint("p")),
-                Pawn(Black) => format!("{}", self.term_black.paint("p")),
-                Knight(White) => format!("{}", self.term_white.paint("n")),
-                Knight(Black) => format!("{}", self.term_black.paint("n")),
-                Bishop(White) => format!("{}", self.term_white.paint("b")),
-                Bishop(Black) => format!("{}", self.term_black.paint("b")),
-                Rook(White) => format!("{}", self.term_white.paint("r")),
-                Rook(Black) => format!("{}", self.term_black.paint("r")),
-                Queen(White) => format!("{}", self.term_white.paint("q")),
-                Queen(Black) => format!("{}", self.term_black.paint("q")),
-                King(White) => format!("{}", self.term_white.paint("k")),
-                King(Black) => format!("{}", self.term_black.paint("k")),
+                Empty => format!("{}", TermColour::Green.paint("# ")),
+                Pawn(White) => format!("{}", self.term_white.paint("P ")),
+                Pawn(Black) => format!("{}", self.term_black.paint("P ")),
+                Knight(White) => format!("{}", self.term_white.paint("N ")),
+                Knight(Black) => format!("{}", self.term_black.paint("N ")),
+                Bishop(White) => format!("{}", self.term_white.paint("B ")),
+                Bishop(Black) => format!("{}", self.term_black.paint("B ")),
+                Rook(White) => format!("{}", self.term_white.paint("R ")),
+                Rook(Black) => format!("{}", self.term_black.paint("R ")),
+                Queen(White) => format!("{}", self.term_white.paint("Q ")),
+                Queen(Black) => format!("{}", self.term_black.paint("Q ")),
+                King(White) => format!("{}", self.term_white.paint("K ")),
+                King(Black) => format!("{}", self.term_black.paint("K ")),
             };
             board_string.push_str(&piece_char);
         });
 
-        board_string
+        // Terminal displays top to bottom, but board is bottom to top. So lines must be reversed
+        board_string.lines().rev().map(|line| String::from(line) + "\n").collect()
     }
 }
 
