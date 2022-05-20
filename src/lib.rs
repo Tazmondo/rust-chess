@@ -1,3 +1,4 @@
+use std::io::Empty;
 use ansi_term::{Colour as TermColour, Style};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -172,26 +173,38 @@ fn validate_coord(coord: &Coord) -> bool {
     !(coord.column < 0 || coord.column > 63 || coord.row < 0 || coord.row > 63)
 }
 
-fn pawn_moves(colour: &Colour, coord: &Coord) -> Vec<Coord> {
+fn get_blocked_line(line: &Vec<Coord>, board: &Board) -> Vec<Coord> {
+    line.iter()
+        .filter(|v| validate_coord(*v))
+        .take_while(|v| board.pieces[Square::from_coord(*v).index as usize] == Empty )
+        .cloned()
+        .collect()
+}
+
+fn pawn_moves(colour: &Colour, coord: &Coord, board: &Board) -> Vec<Coord> {
     let row = coord.row;
     let column = coord.column;
 
     match colour {
         White => {
             let mut moves = Vec::with_capacity(2);
-            moves.push(Coord { row: row + 1, column });
+            let one_up = Coord { row: row + 1, column };
+            moves.push(one_up);
             if row == 1 {
                 moves.push(Coord { row: row + 2, column });
             }
-            moves
+
+            get_blocked_line(&moves, board)
         }
         Black => {
             let mut moves = Vec::with_capacity(2);
-            moves.push(Coord { row: row - 1, column });
-            if row == 1 {
+            let one_down = Coord { row: row - 1, column };
+            moves.push(one_down);
+            if row == 6  {
                 moves.push(Coord { row: row - 2, column });
             }
-            moves
+
+            get_blocked_line(&moves, board)
         }
     }
 }
@@ -212,24 +225,36 @@ fn knight_moves(coord: &Coord) -> Vec<Coord> {
     ]
 }
 
-fn bishop_moves(coord: &Coord) -> Vec<Coord> {
+fn bishop_moves(coord: &Coord, board: &Board) -> Vec<Coord> {
     let row = coord.row;
     let column = coord.column;
 
-    (-7..8).flat_map(|val| vec![
-        Coord { row: row + val, column: column + val },
-        Coord { row: row + val, column: column - val },
-    ]).collect()
+    let mut north_east: Vec<Coord> = get_blocked_line(&(1..8).map(|v| Coord {row: row + v, column: column + v}).collect(), board);
+    let mut north_west: Vec<Coord> = get_blocked_line(&(1..8).map(|v| Coord {row: row + v, column: column - v}).collect(), board);
+    let mut south_east: Vec<Coord> = get_blocked_line(&(1..8).map(|v| Coord {row: row - v, column: column + v}).collect(), board);
+    let mut south_west: Vec<Coord> = get_blocked_line(&(1..8).map(|v| Coord {row: row - v, column: column - v}).collect(), board);
+
+    north_east.append(&mut north_west);
+    north_east.append(&mut south_east);
+    north_east.append(&mut south_west);
+
+    north_east
 }
 
-fn rook_moves(coord: &Coord) -> Vec<Coord> {
+fn rook_moves(coord: &Coord, board: &Board) -> Vec<Coord> {
     let row = coord.row;
     let column = coord.column;
 
-    (-7..8).flat_map(|val| vec![
-        Coord { row: row + val, column },
-        Coord { row, column: column + val },
-    ]).collect()
+    let mut right: Vec<Coord> = get_blocked_line(&(1..8).map(|v| Coord {row, column: column + v}).collect(), board);
+    let mut up: Vec<Coord> = get_blocked_line(&(1..8).map(|v| Coord {row: row + v, column}).collect(), board);
+    let mut down: Vec<Coord> = get_blocked_line(&(1..8).map(|v| Coord {row: row - v, column}).collect(), board);
+    let mut left: Vec<Coord> = get_blocked_line(&(1..8).map(|v| Coord {row, column: column - v}).collect(), board);
+
+    right.append(&mut up);
+    right.append(&mut down);
+    right.append(&mut left);
+
+    right
 }
 
 fn king_moves(coord: &Coord) -> Vec<Coord> {
@@ -245,7 +270,7 @@ fn king_moves(coord: &Coord) -> Vec<Coord> {
     ]).collect()
 }
 
-fn get_piece_moves(piece: &Piece, index: i32) -> Vec<Move> {
+fn get_piece_moves(piece: &Piece, index: i32, board: &Board) -> Vec<Move> {
     if !(0..=63).contains(&index) {
         panic!("Index given was: {}, when max is 63.", index)
     }
@@ -254,12 +279,12 @@ fn get_piece_moves(piece: &Piece, index: i32) -> Vec<Move> {
     let potential_coords: Vec<Coord> = match piece {
         Empty => vec![],
         // Todo: pawn diagonals
-        Pawn(colour) => pawn_moves(colour, &coord),
+        Pawn(colour) => pawn_moves(colour, &coord, board),
         Knight(_) => knight_moves(&coord),
-        Bishop(_) => bishop_moves(&coord),
-        Rook(_) => rook_moves(&coord),
+        Bishop(_) => bishop_moves(&coord, board),
+        Rook(_) => rook_moves(&coord, board),
         Queen(_) =>
-            bishop_moves(&coord)
+            bishop_moves(&coord, board)
                 .into_iter()
                 .chain(
                     knight_moves(&coord).into_iter()
@@ -283,7 +308,7 @@ fn locate_from_target_move(piece: &Piece, desired_square: Square, board: &Board)
         .enumerate()
         .filter(|(index, value)| {
             *value == piece
-                && get_piece_moves(value, (*index) as i32)
+                && get_piece_moves(value, (*index) as i32, board)
                 .iter()
                 .map(|v| v.end)
                 .any(|v| v == desired_square)
