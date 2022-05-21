@@ -15,16 +15,22 @@ fn enable_virtual_terminal_processing() {
 }
 
 fn main() {
-    enable_virtual_terminal_processing();
+    if cfg!(windows) {
+        enable_virtual_terminal_processing();
+    }
 
     let mut board = Board::new();
     let mut msg = String::new();
     let clear_string = format!("{esc}[2J{esc}[1;1H", esc = 27 as char);
 
     loop {
-        println!("{}\n{}{}",clear_string, board.as_string(), msg);
+        if cfg!(debug_assertions) {
+            println!("\n{}{}", board.as_string(), msg);
+        } else {
+            println!("{}\n{}{}",clear_string, board.as_string(), msg);
+        }
         msg.clear();
-        println!("Enter your next move. Examples: nf2; ng0f2; pe2; pe3; etc");
+        println!("{:?} Player, enter your next move. Examples: nf2; ng0f2; pe2; pe3; etc", board.turn);
         let mut input_buffer: String = String::new();
 
         io::stdin()
@@ -35,7 +41,7 @@ fn main() {
 
         match parse_str_move(trimmed, &board) {
             Ok(_move) => {
-                board.move_piece(_move).expect("Failed to make the valid move?");
+                if let Err(err) = board.move_piece(_move) { msg = format!("Could not move: {}", err) }
             },
             Err(err) => {
                 msg = format!("Command invalid: {}", err);

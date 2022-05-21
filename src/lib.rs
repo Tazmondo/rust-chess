@@ -1,9 +1,21 @@
+use std::fmt::{Display, Formatter};
 use ansi_term::{Colour as TermColour, Style};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Colour {
     White,
     Black,
+}
+
+impl std::ops::Not for Colour {
+    type Output = Colour;
+
+    fn not(self) -> Self::Output {
+        match self {
+            White => Black,
+            Black => White
+        }
+    }
 }
 
 use Colour::*;
@@ -27,14 +39,6 @@ pub struct ColourPiece {
     colour: Colour,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum Space {
-    Empty,
-    Full(ColourPiece),
-}
-
-use Space::*;
-
 impl ColourPiece {
     fn from_char(char: char, board: &Board) -> Option<ColourPiece> {
         match char {
@@ -49,6 +53,15 @@ impl ColourPiece {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum Space {
+    Empty,
+    Full(ColourPiece),
+}
+
+use Space::*;
+
+
 // Represents an arbitrary coordinate
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub struct Coord {
@@ -58,16 +71,9 @@ pub struct Coord {
 
 // Represents a coordinate that actually exists on the board
 #[derive(PartialEq, Copy, Clone, Debug)]
-struct Square {
+pub struct Square {
     coord: Coord,
     index: i32,
-}
-
-#[derive(PartialEq, Copy, Clone, Debug)]
-pub struct Move {
-    piece: ColourPiece,
-    start: Square,
-    end: Square,
 }
 
 impl Square {
@@ -119,14 +125,32 @@ impl Square {
     }
 }
 
+#[derive(PartialEq, Copy, Clone, Debug)]
+pub struct Move {
+    piece: ColourPiece,
+    start: Square,
+    end: Square,
+}
+
+impl Move {
+    fn inverse(&self) -> Move {
+        Move {
+            piece: self.piece,
+            start: self.end,
+            end: self.start,
+        }
+    }
+}
+
 // Board indexes will start at bottom left.
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub struct Board {
     pub pieces: [Space; 64],
     pub turn: Colour,
 
     term_white: Style,
     term_black: Style,
-    term_other: Style
+    term_other: Style,
 }
 
 impl Default for Board {
@@ -142,8 +166,8 @@ impl Board {
             pieces: [Full(ColourPiece { variant: Rook, colour: White }), Full(ColourPiece { variant: Knight, colour: White }), Full(ColourPiece { variant: Bishop, colour: White }), Full(ColourPiece { variant: Queen, colour: White }), Full(ColourPiece { variant: King, colour: White }), Full(ColourPiece { variant: Bishop, colour: White }), Full(ColourPiece { variant: Knight, colour: White }), Full(ColourPiece { variant: Rook, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Rook, colour: Black }), Full(ColourPiece { variant: Knight, colour: Black }), Full(ColourPiece { variant: Bishop, colour: Black }), Full(ColourPiece { variant: Queen, colour: Black }), Full(ColourPiece { variant: King, colour: Black }), Full(ColourPiece { variant: Bishop, colour: Black }), Full(ColourPiece { variant: Knight, colour: Black }), Full(ColourPiece { variant: Rook, colour: Black }), ],
             turn: White,
 
-            term_black: Style::new().on(TermColour::RGB(35,35,35)).fg(TermColour::White),
-            term_white: Style::new().on(TermColour::RGB(155,155,155)).fg(TermColour::Black),
+            term_black: Style::new().on(TermColour::RGB(35, 35, 35)).fg(TermColour::White),
+            term_white: Style::new().on(TermColour::RGB(155, 155, 155)).fg(TermColour::Black),
             term_other: Style::new().fg(TermColour::Green),
         }
     }
@@ -173,7 +197,7 @@ impl Board {
             };
             board_string.push_str(&piece_char);
 
-            if (index+1) % 8 == 0 {
+            if (index + 1) % 8 == 0 {
                 board_string.push_str(&format!("{}", self.term_other.paint(format!("|{}", index / 8))));
             }
         });
@@ -192,11 +216,29 @@ impl Board {
         board_string
     }
 
-    pub fn move_piece(&mut self, _move: Move) -> Result<(), String> {
-        if !validate_move(_move, self) { return Err("Move was invalid...".to_string()); }
-
+    // No checks, this is called when checking for check, as using the move_piece function resulted
+    // in infinite recursion and a stack overflow
+    fn execute_move(&mut self, _move: Move) {
         self.pieces[_move.end.index as usize] = Full(_move.piece);
         self.pieces[_move.start.index as usize] = Empty;
+    }
+
+    pub fn move_piece(&mut self, _move: Move) -> Result<(), String> {
+        if !validate_move(_move, self) { return Err("Move was invalid...".to_string()); }
+        if self.turn != _move.piece.colour {
+            return Err(format!("It is currently {:?}'s turn!", self.turn));
+        };
+
+        // Todo: checkmate
+        let check = self.does_move_cause_check(_move);
+        match check {
+            Some(White) => return Err("White is in check!".to_string()),
+            Some(Black) => return Err("Black is in check!".to_string()),
+            _ => {}
+        }
+
+        self.execute_move(_move);
+        self.turn = !self.turn;
         Ok(())
     }
 
@@ -210,6 +252,49 @@ impl Board {
         } else {
             None
         }
+    }
+
+    fn get_king(&self, colour: &Colour) -> Square {
+        self.pieces.iter().enumerate().find_map(|(index, space)| match space {
+            Empty => None,
+            Full(piece) => if &piece.colour == colour && piece.variant == King { Some(Square::from_index(index as i32)) } else { None }
+        }).unwrap_or_else(|| panic!("There is no {:?} king?", colour))
+    }
+
+    fn is_threatened(&self, target_piece: &ColourPiece, square: Square) -> bool {
+        self.pieces.iter()
+            .enumerate()
+            .filter_map(|(index, v)| match v {
+                Empty => None,
+                Full(piece) => {
+                    if piece.colour != target_piece.colour {
+                        Some(get_piece_moves(*piece, index as i32, &self))
+                    } else {
+                        None
+                    }
+                }
+            })
+            .flatten()
+            .any(|v| v.end == square)
+    }
+
+    fn in_check_state(&self) -> Option<Colour> {
+        let w_king = self.get_king(&White);
+        let b_king = self.get_king(&Black);
+
+        if self.is_threatened(&ColourPiece { variant: King, colour: White }, w_king) && self.turn == White {
+            Some(White)
+        } else if self.is_threatened(&ColourPiece { variant: King, colour: Black }, b_king) && self.turn == Black {
+            Some(Black)
+        } else {
+            None
+        }
+    }
+
+    fn does_move_cause_check(&self, _move: Move) -> Option<Colour> {
+        let mut new_board = *self;
+        new_board.execute_move(_move);
+        new_board.in_check_state()
     }
 }
 
@@ -423,7 +508,9 @@ fn locate_from_target_move(piece: &ColourPiece, desired_square: Square, board: &
         .enumerate()
         .filter(|(index, value)| {
             if let Full(cpiece) = value {
-                cpiece.variant == piece.variant && get_piece_moves(*cpiece, (*index) as i32, board)
+                cpiece.variant == piece.variant
+                    && cpiece.colour == piece.colour
+                    && get_piece_moves(*cpiece, (*index) as i32, board)
                     .iter()
                     .map(|v| v.end)
                     .any(|v| v == desired_square)
@@ -453,6 +540,7 @@ pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> 
 
     let char_vec: Vec<char> = move_string.chars().collect();
 
+    // Todo: castling
     match char_vec.len() {
         3 => {
             let piece_type = ColourPiece::from_char(char_vec[0], board).ok_or_else(|| String::from("Invalid piece type"))?;
@@ -501,7 +589,7 @@ pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> 
 
 #[cfg(test)]
 mod tests {
-    use crate::{Board, Square};
+    use crate::{Black, Board, Square, White};
 
     #[test]
     fn board() {
@@ -526,5 +614,14 @@ mod tests {
         let indexed_square4 = Square::from_index(19).coord;
         assert_eq!(indexed_square4.row, 2);
         assert_eq!(indexed_square4.column, 3)
+    }
+
+    #[test]
+    fn colour() {
+        assert_eq!(White, !Black);
+        assert_eq!(White, White);
+        assert_eq!(Black, !White);
+        assert_eq!(Black, Black);
+        assert_ne!(Black, White);
     }
 }
