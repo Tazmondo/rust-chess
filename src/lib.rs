@@ -145,12 +145,12 @@ impl Board {
     }
 
     pub fn as_string(&self) -> String {
-        let mut board_string = String::with_capacity(64);
+        let mut board_string = String::with_capacity(128);
         board_string.push_str("0|");
         self.pieces.iter().enumerate().for_each(|(index, piece)| {
             if index % 8 == 0 && index != 0 {
                 board_string = format!("{}\n{}|", board_string, index / 8);
-            } else if index ==0 { }
+            } else if index == 0 {}
 
             let piece_char = match piece {
                 Empty => format!("{}", TermColour::Green.paint("# ")),
@@ -167,13 +167,25 @@ impl Board {
                 Full(ColourPiece { variant: King, colour: White }) => format!("{}", self.term_white.paint("K ")),
                 Full(ColourPiece { variant: King, colour: Black }) => format!("{}", self.term_black.paint("K ")),
             };
-            board_string.push_str(&piece_char);
+            if (index+1) % 8 == 0 {
+                let trimmed_char: String = piece_char.chars().filter(|v| v!=&' ').collect();
+                board_string.push_str(&trimmed_char);
+                board_string.push_str(&format!("|{}", index/8))
+            } else{
+                board_string.push_str(&piece_char);
+            }
         });
+
+        let column_label = " |A B C D E F G H|\n";
+
+        // Add letters at top
+        board_string.push_str(&format!("\n{}", column_label));
 
         // Terminal displays top to bottom, but board is bottom to top. So lines must be reversed
         board_string = board_string.lines().rev().map(|line| String::from(line) + "\n").collect();
 
-        board_string.push_str(" |---------------\n  A B C D E F G H\n\n");
+        //Add letters at bottom
+        board_string.push_str(&format!("{}\n", column_label));
 
         board_string
     }
