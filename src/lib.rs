@@ -103,7 +103,6 @@ impl Square {
     }
 
     fn from_str(coords: &[char]) -> Result<Square, String> {
-        println!("{:?}", coords);
         let column = match &coords[0] {
             'a' | '1' => Ok(0),
             'b' | '2' => Ok(1),
@@ -146,7 +145,8 @@ impl Move {
 pub enum GameState {
     Playing,
     Checkmate(Colour),
-    Stalemate
+    // Colour that has been checkmated
+    Stalemate,
 }
 
 // Board indexes will start at bottom left.
@@ -230,7 +230,7 @@ impl Board {
         self.pieces[_move.start.index as usize] = Empty;
     }
 
-    pub fn move_piece(&mut self, _move: Move) -> Result<(), String> {
+    pub fn move_piece(&mut self, _move: Move) -> Result<GameState, String> {
         if !validate_move(_move, self) { return Err("Move was invalid...".to_string()); }
         if self.turn != _move.piece.colour {
             return Err(format!("It is currently {:?}'s turn!", self.turn));
@@ -250,8 +250,7 @@ impl Board {
         self.turn = !self.turn;
 
         // Check for checkmate before returning control to the player
-
-        Ok(())
+        Ok(self.check_mate())
     }
 
     // Returns the piece at coord, or none if coord is invalid or square at coord is empty
@@ -266,33 +265,52 @@ impl Board {
         }
     }
 
-    fn get_king(&self, colour: &Colour) -> Square {
-        self.pieces.iter().enumerate().find_map(|(index, space)| match space {
-            Empty => None,
-            Full(piece) => if &piece.colour == colour && piece.variant == King { Some(Square::from_index(index as i32)) } else { None }
-        }).unwrap_or_else(|| panic!("There is no {:?} king?", colour))
+    // Must be an option, as when checking for threats, it assumes that the piece will take the king
+    // resulting in a board with no king when checking.
+    fn get_king(&self, colour: Colour) -> Option<Square> {
+        self.pieces.iter().enumerate().find_map(|(index, space)| {
+            match space {
+                Empty => None,
+                Full(piece) => {
+                    if piece.colour == colour && piece.variant == King {
+                        Some(Square::from_index(index as i32))
+                    } else { None }
+                }
+            }
+        })
     }
 
-    fn is_threatened(&self, target_piece: &ColourPiece, square: Square) -> bool {
+    fn get_possible_moves(&self, colour: Colour) -> Vec<Move> {
         self.pieces.iter()
             .enumerate()
             .filter_map(|(index, v)| match v {
                 Empty => None,
                 Full(piece) => {
-                    if piece.colour != target_piece.colour {
-                        Some(get_piece_moves(*piece, index as i32, &self))
+                    if piece.colour == colour {
+                        Some(get_piece_moves(*piece, index as i32, self))
                     } else {
                         None
                     }
                 }
             })
             .flatten()
-            .any(|v| v.end == square)
+            .collect()
+    }
+
+    fn is_threatened(&self, target_piece: &ColourPiece, square: Square) -> bool {
+        self.get_possible_moves(!target_piece.colour).iter().any(|v| v.end == square)
     }
 
     fn in_check_state(&self) -> Option<Colour> {
-        let w_king = self.get_king(&White);
-        let b_king = self.get_king(&Black);
+        let w_king = match self.get_king(White) {
+            Some(square) => square,
+            None => return None
+        };
+
+        let b_king = match self.get_king(Black) {
+            Some(square) => square,
+            None => return None
+        };
 
         if self.is_threatened(&ColourPiece { variant: King, colour: White }, w_king) && self.turn == White {
             Some(White)
@@ -303,9 +321,27 @@ impl Board {
         }
     }
 
-    // fn check_mate(&self) -> bool {
-    //
-    // }
+    fn check_mate(&self) -> GameState {
+        let moves: Vec<Move> = self.get_possible_moves(self.turn)
+            .iter()
+            .filter(|v| match self.does_move_cause_check(**v) {
+                None => true,
+                Some(colour) => { colour != self.turn }
+            })
+            .copied()
+            .collect();
+
+        let no_moves = moves.len() == 0;
+
+        if no_moves && self.in_check_state().is_some() {
+            GameState::Checkmate(self.turn)
+        } else if no_moves {
+            GameState::Stalemate
+        } else {
+            println!("{:#?}", moves);
+            GameState::Playing
+        }
+    }
 
     fn does_move_cause_check(&self, _move: Move) -> Option<Colour> {
         let mut new_board = *self;
@@ -572,7 +608,8 @@ pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> 
                 };
                 if validate_move(new_move, board) {
                     Ok(new_move)
-                } else {                    Err("Move was invalid".to_string())
+                } else {
+                    Err("Move was invalid".to_string())
                 }
             } else {
                 panic!("Start square did not have a valid piece on it?")
