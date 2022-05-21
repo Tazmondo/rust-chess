@@ -94,15 +94,17 @@ fn main() {
         println!("{}\n{}{}",clear_string, string_board(&board), msg);
         loop {
             if let Ok(event::Event::Mouse(MouseEvent {kind: event::MouseEventKind::Down(event::MouseButton::Left), row, column, ..})) = event::read() {
-                if (3..=10).contains(&row) && (3..=24).contains(&column) {
+                if (3..=10).contains(&row) && (3..=25).contains(&column) {
                     let calculated_row = 10 - row;
-                    let calculated_column = (column/3) - 1;
+                    let calculated_column = ((column+1)/3) - 1;
 
                     if start == None {
                         start = Some(Coord {
                             column: calculated_column as i32,
                             row: calculated_row as i32
                         });
+                        // Todo: validate that this is a valid starting piece
+                        // todo: highlight this piece on the board string
                         msg.push_str("Selected...\n");
                     } else {
                         let start = start.take().unwrap();
