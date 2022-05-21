@@ -323,6 +323,7 @@ fn get_piece_moves(piece: ColourPiece, index: i32, board: &Board) -> Vec<Move> {
     let coord = Square::from_index(index).coord;
 
     let potential_coords: Vec<Coord> = match piece {
+        // todo: pawn diagonal attacking
         ColourPiece { variant: Pawn, colour } => pawn_moves(&colour, &coord, board),
 
         ColourPiece { variant: Knight, colour } => knight_moves(&coord, &colour, board),
@@ -403,31 +404,42 @@ pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> 
 
             let start_square = locate_from_target_move(&piece_type, end_square, board)?;
 
-            let new_move = Move {
-                piece: piece_type,
-                start: start_square,
-                end: end_square,
-            };
-            if validate_move(new_move, board) {
-                Ok(new_move)
+            // Colour on the temporary piece_type variable is unreliable
+            if let Full(actual_piece) = board.pieces[start_square.index as usize] {
+                let new_move = Move {
+                    piece: actual_piece,
+                    start: start_square,
+                    end: end_square,
+                };
+                if validate_move(new_move, board) {
+                    Ok(new_move)
+                } else {
+                    Err("Move was invalid".to_string())
+                }
             } else {
-                Err("Move was invalid".to_string())
+                panic!("Start square did not have a valid piece on it?")
             }
+
+
         }
         5 => {
             let piece_type = ColourPiece::from_char(char_vec[0], board).ok_or_else(|| String::from("Invalid piece type"))?;
             let start_square = Square::from_str(&char_vec[1..3])?;
             let end_square = Square::from_str(&char_vec[3..5])?;
-            let new_move = Move {
-                piece: piece_type,
-                start: start_square,
-                end: end_square,
-            };
 
-            if validate_move(new_move, board) {
-                Ok(new_move)
+            if let Full(actual_piece) = board.pieces[start_square.index as usize] {
+                let new_move = Move {
+                    piece: actual_piece,
+                    start: start_square,
+                    end: end_square,
+                };
+                if validate_move(new_move, board) {
+                    Ok(new_move)
+                } else {
+                    Err("Move was invalid".to_string())
+                }
             } else {
-                Err("Move was invalid".to_string())
+                panic!("Start square did not have a valid piece on it?")
             }
         }
         length => Err(format!("Invalid length passed: {}", length))
