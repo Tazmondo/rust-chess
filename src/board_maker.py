@@ -5,17 +5,17 @@ def make_rust_board(inp):
     result = "["
     for char in inp:
         if char == "r":
-            result += f"Rook({colour}), "
+            result += f"Full(ColourPiece {'{'}variant: Rook, colour:{colour}{'}'}), "
         elif char == "n":
-            result += f"Knight({colour}), "
+            result += f"Full(ColourPiece {'{'}variant: Knight, colour:{colour}{'}'}), "
         elif char == "b":
-            result += f"Bishop({colour}), "
+            result += f"Full(ColourPiece {'{'}variant: Bishop, colour:{colour}{'}'}), "
         elif char == "q":
-            result += f"Queen({colour}), "
+            result += f"Full(ColourPiece {'{'}variant: Queen, colour:{colour}{'}'}), "
         elif char == "k":
-            result += f"King({colour}), "
+            result += f"Full(ColourPiece {'{'}variant: King, colour:{colour}{'}'}), "
         elif char == "p":
-            result += f"Pawn({colour}), "
+            result += f"Full(ColourPiece {'{'}variant: Pawn, colour:{colour}{'}'}), "
         elif char == "e":
             result += "Empty, "
         elif char == "0":
@@ -23,8 +23,9 @@ def make_rust_board(inp):
         elif char == "1":
             colour = "Black"
 
-    result += "]"
+    result += "],"
     return result
+
 
 with open("board.txt", "w") as f:
     f.write(make_rust_board(default))
