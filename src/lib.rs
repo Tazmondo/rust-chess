@@ -146,11 +146,11 @@ impl Board {
 
     pub fn as_string(&self) -> String {
         let mut board_string = String::with_capacity(64);
-
+        board_string.push_str("0|");
         self.pieces.iter().enumerate().for_each(|(index, piece)| {
             if index % 8 == 0 && index != 0 {
-                board_string.push('\n');
-            }
+                board_string = format!("{}\n{}|", board_string, index / 8);
+            } else if index ==0 { }
 
             let piece_char = match piece {
                 Empty => format!("{}", TermColour::Green.paint("# ")),
@@ -171,7 +171,11 @@ impl Board {
         });
 
         // Terminal displays top to bottom, but board is bottom to top. So lines must be reversed
-        board_string.lines().rev().map(|line| String::from(line) + "\n").collect()
+        board_string = board_string.lines().rev().map(|line| String::from(line) + "\n").collect();
+
+        board_string.push_str(" |---------------\n  A B C D E F G H\n\n");
+
+        board_string
     }
 
     pub fn move_piece(&mut self, _move: Move) -> Result<(), String> {
