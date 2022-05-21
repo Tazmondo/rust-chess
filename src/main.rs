@@ -1,10 +1,7 @@
 use chess::{Board, parse_str_move};
 use std::io;
 
-fn clear() {
-    print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
-}
-
+// To enable terminal colours
 #[cfg(windows)]
 fn enable_virtual_terminal_processing() {
     use winapi_util::console::Console;
@@ -22,9 +19,10 @@ fn main() {
 
     let mut board = Board::new();
     let mut msg = String::new();
+    let clear_string = format!("{esc}[2J{esc}[1;1H", esc = 27 as char);
+
     loop {
-        clear();
-        println!("\n{}\n{}", board.as_string(), msg);
+        println!("{}\n{}{}",clear_string, board.as_string(), msg);
         msg.clear();
         println!("Enter your next move. Examples: nf2; ng0f2; pe2; pe3; etc");
         let mut input_buffer: String = String::new();

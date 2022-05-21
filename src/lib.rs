@@ -146,37 +146,35 @@ impl Board {
 
     pub fn as_string(&self) -> String {
         let mut board_string = String::with_capacity(128);
-        board_string.push_str("0|");
+        board_string.push_str(&format!("{}", self.term_other.paint("0|")));
         self.pieces.iter().enumerate().for_each(|(index, piece)| {
             if index % 8 == 0 && index != 0 {
-                board_string = format!("{}\n{}|", board_string, index / 8);
+                board_string.push_str(&format!("\n{}", self.term_other.paint(format!("{}|", index / 8))))
             } else if index == 0 {}
 
             let piece_char = match piece {
-                Empty => format!("{}", TermColour::Green.paint("# ")),
-                Full(ColourPiece { variant: Pawn, colour: White }) => format!("{}", self.term_white.paint("P ")),
-                Full(ColourPiece { variant: Pawn, colour: Black }) => format!("{}", self.term_black.paint("P ")),
-                Full(ColourPiece { variant: Knight, colour: White }) => format!("{}", self.term_white.paint("N ")),
-                Full(ColourPiece { variant: Knight, colour: Black }) => format!("{}", self.term_black.paint("N ")),
-                Full(ColourPiece { variant: Bishop, colour: White }) => format!("{}", self.term_white.paint("B ")),
-                Full(ColourPiece { variant: Bishop, colour: Black }) => format!("{}", self.term_black.paint("B ")),
-                Full(ColourPiece { variant: Rook, colour: White }) => format!("{}", self.term_white.paint("R ")),
-                Full(ColourPiece { variant: Rook, colour: Black }) => format!("{}", self.term_black.paint("R ")),
-                Full(ColourPiece { variant: Queen, colour: White }) => format!("{}", self.term_white.paint("Q ")),
-                Full(ColourPiece { variant: Queen, colour: Black }) => format!("{}", self.term_black.paint("Q ")),
-                Full(ColourPiece { variant: King, colour: White }) => format!("{}", self.term_white.paint("K ")),
-                Full(ColourPiece { variant: King, colour: Black }) => format!("{}", self.term_black.paint("K ")),
+                Empty => format!("{}", self.term_other.paint(" # ")),
+                Full(ColourPiece { variant: Pawn, colour: White }) => format!("{}", self.term_white.paint(" P ")),
+                Full(ColourPiece { variant: Pawn, colour: Black }) => format!("{}", self.term_black.paint(" P ")),
+                Full(ColourPiece { variant: Knight, colour: White }) => format!("{}", self.term_white.paint(" N ")),
+                Full(ColourPiece { variant: Knight, colour: Black }) => format!("{}", self.term_black.paint(" N ")),
+                Full(ColourPiece { variant: Bishop, colour: White }) => format!("{}", self.term_white.paint(" B ")),
+                Full(ColourPiece { variant: Bishop, colour: Black }) => format!("{}", self.term_black.paint(" B ")),
+                Full(ColourPiece { variant: Rook, colour: White }) => format!("{}", self.term_white.paint(" R ")),
+                Full(ColourPiece { variant: Rook, colour: Black }) => format!("{}", self.term_black.paint(" R ")),
+                Full(ColourPiece { variant: Queen, colour: White }) => format!("{}", self.term_white.paint(" Q ")),
+                Full(ColourPiece { variant: Queen, colour: Black }) => format!("{}", self.term_black.paint(" Q ")),
+                Full(ColourPiece { variant: King, colour: White }) => format!("{}", self.term_white.paint(" K ")),
+                Full(ColourPiece { variant: King, colour: Black }) => format!("{}", self.term_black.paint(" K ")),
             };
+            board_string.push_str(&piece_char);
+
             if (index+1) % 8 == 0 {
-                let trimmed_char: String = piece_char.chars().filter(|v| v!=&' ').collect();
-                board_string.push_str(&trimmed_char);
-                board_string.push_str(&format!("|{}", index/8))
-            } else{
-                board_string.push_str(&piece_char);
+                board_string.push_str(&format!("{}", self.term_other.paint(format!("|{}", index / 8))));
             }
         });
 
-        let column_label = " |A B C D E F G H|\n";
+        let column_label = self.term_other.paint("   A  B  C  D  E  F  G  H \n");
 
         // Add letters at top
         board_string.push_str(&format!("\n{}", column_label));
