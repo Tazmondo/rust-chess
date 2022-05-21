@@ -1,7 +1,10 @@
 use std::collections::VecDeque;
-use chess::{Board, Colour, Coord, GameState, parse_str_move};
+use chess::{Space, Board, ColourPiece, Coord, GameState, parse_str_move};
+use chess::Piece::*;
+use chess::Colour::*;
 use std::io;
 use std::io::stdout;
+use ansi_term::{Colour as TermColour, Style};
 use crossterm::{event};
 use crossterm::event::MouseEvent;
 
@@ -16,6 +19,54 @@ fn enable_virtual_terminal_processing() {
     if let Ok(mut term) = Console::stderr() {
         let _ = term.set_virtual_terminal_processing(true);
     }
+}
+
+fn string_board(board: &Board) -> String {
+    let term_black = Style::new().on(TermColour::RGB(35, 35, 35)).fg(TermColour::White);
+    let term_white = Style::new().on(TermColour::RGB(155, 155, 155)).fg(TermColour::Black);
+    let term_other = Style::new().fg(TermColour::Green);
+    
+    let mut board_string = String::with_capacity(128);
+    board_string.push_str(&format!("{}", term_other.paint("1|")));
+    board.pieces.iter().enumerate().for_each(|(index, piece)| {
+        if index % 8 == 0 && index != 0 {
+            board_string.push_str(&format!("\n{}", term_other.paint(format!("{}|", (index / 8) + 1))))
+        } else if index == 0 {}
+
+        let piece_char = match piece {
+            Space::Empty => format!("{}", term_other.paint(" # ")),
+            Space::Full(ColourPiece { variant: Pawn, colour: White }) => format!("{}", term_white.paint(" P ")),
+            Space::Full(ColourPiece { variant: Pawn, colour: Black }) => format!("{}", term_black.paint(" P ")),
+            Space::Full(ColourPiece { variant: Knight, colour: White }) => format!("{}", term_white.paint(" N ")),
+            Space::Full(ColourPiece { variant: Knight, colour: Black }) => format!("{}", term_black.paint(" N ")),
+            Space::Full(ColourPiece { variant: Bishop, colour: White }) => format!("{}", term_white.paint(" B ")),
+            Space::Full(ColourPiece { variant: Bishop, colour: Black }) => format!("{}", term_black.paint(" B ")),
+            Space::Full(ColourPiece { variant: Rook, colour: White }) => format!("{}", term_white.paint(" R ")),
+            Space::Full(ColourPiece { variant: Rook, colour: Black }) => format!("{}", term_black.paint(" R ")),
+            Space::Full(ColourPiece { variant: Queen, colour: White }) => format!("{}", term_white.paint(" Q ")),
+            Space::Full(ColourPiece { variant: Queen, colour: Black }) => format!("{}", term_black.paint(" Q ")),
+            Space::Full(ColourPiece { variant: King, colour: White }) => format!("{}", term_white.paint(" K ")),
+            Space::Full(ColourPiece { variant: King, colour: Black }) => format!("{}", term_black.paint(" K ")),
+        };
+        board_string.push_str(&piece_char);
+
+        if (index + 1) % 8 == 0 {
+            board_string.push_str(&format!("{}", term_other.paint(format!("|{}", (index / 8) + 1))));
+        }
+    });
+
+    let column_label = term_other.paint("   A  B  C  D  E  F  G  H \n");
+
+    // Add letters at top
+    board_string.push_str(&format!("\n{}", column_label));
+
+    // Terminal displays top to bottom, but board is bottom to top. So lines must be reversed
+    board_string = board_string.lines().rev().map(|line| String::from(line) + "\n").collect();
+
+    //Add letters at bottom
+    board_string.push_str(&format!("{}\n", column_label));
+
+    board_string
 }
 
 fn main() {
@@ -40,7 +91,7 @@ fn main() {
     if MOUSE_MODE {
         let mut start: Option<Coord> = None;
 
-        println!("{}\n{}{}",clear_string, board.as_string(), msg);
+        println!("{}\n{}{}",clear_string, string_board(&board), msg);
         loop {
             if let Ok(event::Event::Mouse(MouseEvent {kind: event::MouseEventKind::Down(event::MouseButton::Left), row, column, ..})) = event::read() {
                 if (3..=10).contains(&row) && (3..=24).contains(&column) {
@@ -60,8 +111,6 @@ fn main() {
                             column: calculated_column as i32
                         };
 
-                        msg.push_str(&format!("{:?} {:?}", start, end));
-
                         let state = board.attempt_move_with_coords(start, end);
 
                         match state {
@@ -69,17 +118,20 @@ fn main() {
                             Ok(state) => match state {
                                 GameState::Playing => {}
                                 GameState::Checkmate(colour) => {
+                                    println!("{}\n{}",clear_string, string_board(&board));
                                     println!("{:?} wins!", !colour);
                                     break
                                 }
                                 GameState::Stalemate => {
+                                    println!("{}\n{}",clear_string, string_board(&board));
                                     println!("Stalemate...");
                                     break
                                 }
                             }
                         }
                     }
-                    println!("{}\n{}{}", clear_string, board.as_string(), msg);
+                    println!("{}\n{}{}", clear_string, string_board(&board), msg);
+                    println!("It's {:?}'s turn!\n", board.turn);
                     msg.clear();
                 }
             };
@@ -87,9 +139,9 @@ fn main() {
     } else {
         loop {
             if cfg!(debug_assertions) {
-                println!("\n{}{}", board.as_string(), msg);
+                println!("\n{}{}", string_board(&board), msg);
             } else {
-                println!("{}\n{}{}",clear_string, board.as_string(), msg);
+                println!("{}\n{}{}",clear_string, string_board(&board), msg);
             }
             msg.clear();
             println!("{:?} Player, enter your next move. Examples: nf3; ng1f3; pe3; pe4; etc", board.turn);

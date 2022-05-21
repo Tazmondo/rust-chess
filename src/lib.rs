@@ -1,6 +1,3 @@
-use std::fmt::{Display, Formatter};
-use ansi_term::{Colour as TermColour, Style};
-
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Colour {
     White,
@@ -35,8 +32,8 @@ use Piece::*;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct ColourPiece {
-    variant: Piece,
-    colour: Colour,
+    pub variant: Piece,
+    pub colour: Colour,
 }
 
 impl ColourPiece {
@@ -72,8 +69,8 @@ pub struct Coord {
 // Represents a coordinate that actually exists on the board
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub struct Square {
-    coord: Coord,
-    index: i32,
+    pub coord: Coord,
+    pub index: i32,
 }
 
 impl Square {
@@ -154,10 +151,6 @@ pub enum GameState {
 pub struct Board {
     pub pieces: [Space; 64],
     pub turn: Colour,
-
-    term_white: Style,
-    term_black: Style,
-    term_other: Style,
 }
 
 impl Default for Board {
@@ -173,54 +166,8 @@ impl Board {
             pieces: [Full(ColourPiece { variant: Rook, colour: White }), Full(ColourPiece { variant: Knight, colour: White }), Full(ColourPiece { variant: Bishop, colour: White }), Full(ColourPiece { variant: Queen, colour: White }), Full(ColourPiece { variant: King, colour: White }), Full(ColourPiece { variant: Bishop, colour: White }), Full(ColourPiece { variant: Knight, colour: White }), Full(ColourPiece { variant: Rook, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Rook, colour: Black }), Full(ColourPiece { variant: Knight, colour: Black }), Full(ColourPiece { variant: Bishop, colour: Black }), Full(ColourPiece { variant: Queen, colour: Black }), Full(ColourPiece { variant: King, colour: Black }), Full(ColourPiece { variant: Bishop, colour: Black }), Full(ColourPiece { variant: Knight, colour: Black }), Full(ColourPiece { variant: Rook, colour: Black }), ],
             turn: White,
 
-            term_black: Style::new().on(TermColour::RGB(35, 35, 35)).fg(TermColour::White),
-            term_white: Style::new().on(TermColour::RGB(155, 155, 155)).fg(TermColour::Black),
-            term_other: Style::new().fg(TermColour::Green),
+
         }
-    }
-
-    pub fn as_string(&self) -> String {
-        let mut board_string = String::with_capacity(128);
-        board_string.push_str(&format!("{}", self.term_other.paint("1|")));
-        self.pieces.iter().enumerate().for_each(|(index, piece)| {
-            if index % 8 == 0 && index != 0 {
-                board_string.push_str(&format!("\n{}", self.term_other.paint(format!("{}|", (index / 8) + 1))))
-            } else if index == 0 {}
-
-            let piece_char = match piece {
-                Empty => format!("{}", self.term_other.paint(" # ")),
-                Full(ColourPiece { variant: Pawn, colour: White }) => format!("{}", self.term_white.paint(" P ")),
-                Full(ColourPiece { variant: Pawn, colour: Black }) => format!("{}", self.term_black.paint(" P ")),
-                Full(ColourPiece { variant: Knight, colour: White }) => format!("{}", self.term_white.paint(" N ")),
-                Full(ColourPiece { variant: Knight, colour: Black }) => format!("{}", self.term_black.paint(" N ")),
-                Full(ColourPiece { variant: Bishop, colour: White }) => format!("{}", self.term_white.paint(" B ")),
-                Full(ColourPiece { variant: Bishop, colour: Black }) => format!("{}", self.term_black.paint(" B ")),
-                Full(ColourPiece { variant: Rook, colour: White }) => format!("{}", self.term_white.paint(" R ")),
-                Full(ColourPiece { variant: Rook, colour: Black }) => format!("{}", self.term_black.paint(" R ")),
-                Full(ColourPiece { variant: Queen, colour: White }) => format!("{}", self.term_white.paint(" Q ")),
-                Full(ColourPiece { variant: Queen, colour: Black }) => format!("{}", self.term_black.paint(" Q ")),
-                Full(ColourPiece { variant: King, colour: White }) => format!("{}", self.term_white.paint(" K ")),
-                Full(ColourPiece { variant: King, colour: Black }) => format!("{}", self.term_black.paint(" K ")),
-            };
-            board_string.push_str(&piece_char);
-
-            if (index + 1) % 8 == 0 {
-                board_string.push_str(&format!("{}", self.term_other.paint(format!("|{}", (index / 8) + 1))));
-            }
-        });
-
-        let column_label = self.term_other.paint("   A  B  C  D  E  F  G  H \n");
-
-        // Add letters at top
-        board_string.push_str(&format!("\n{}", column_label));
-
-        // Terminal displays top to bottom, but board is bottom to top. So lines must be reversed
-        board_string = board_string.lines().rev().map(|line| String::from(line) + "\n").collect();
-
-        //Add letters at bottom
-        board_string.push_str(&format!("{}\n", column_label));
-
-        board_string
     }
 
     // No checks, this is called when checking for check, as using the move_piece function resulted
@@ -238,13 +185,12 @@ impl Board {
 
         let check = self.does_move_cause_check(_move);
         match check {
-            Some(White) => return Err("White is in check!".to_string()),
-            Some(Black) => return Err("Black is in check!".to_string()),
+            Some(White) => return Err("White would be in check!".to_string()),
+            Some(Black) => return Err("Black would be in check!".to_string()),
             _ => {}
         }
 
         self.execute_move(_move);
-        //todo: checkmate and stalemate
 
         // Switch to perspective of opposing player
         self.turn = !self.turn;
@@ -684,7 +630,6 @@ mod tests {
     #[test]
     fn board() {
         let board = Board::new();
-        println!("{}", board.as_string());
     }
 
     #[test]
