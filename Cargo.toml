@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 ansi_term = "0.12"
+
+[target.'cfg(windows)'.dependencies]
+winapi-util = "0.1"

@@ -5,7 +5,20 @@ fn clear() {
     print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
 }
 
+#[cfg(windows)]
+fn enable_virtual_terminal_processing() {
+    use winapi_util::console::Console;
+
+    if let Ok(mut term) = Console::stdout() {
+        let _ = term.set_virtual_terminal_processing(true);
+    }
+    if let Ok(mut term) = Console::stderr() {
+        let _ = term.set_virtual_terminal_processing(true);
+    }
+}
+
 fn main() {
+    enable_virtual_terminal_processing();
 
     let mut board = Board::new();
     let mut msg = String::new();
@@ -13,7 +26,7 @@ fn main() {
         clear();
         println!("\n{}\n{}", board.as_string(), msg);
         msg.clear();
-        println!("Enter your next move.\n>>>    ");
+        println!("Enter your next move. Examples: nf2; ng0f2; pe2; pe3; etc");
         let mut input_buffer: String = String::new();
 
         io::stdin()
