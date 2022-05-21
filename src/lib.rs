@@ -419,8 +419,6 @@ pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> 
             } else {
                 panic!("Start square did not have a valid piece on it?")
             }
-
-
         }
         5 => {
             let piece_type = ColourPiece::from_char(char_vec[0], board).ok_or_else(|| String::from("Invalid piece type"))?;
@@ -439,7 +437,7 @@ pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> 
                     Err("Move was invalid".to_string())
                 }
             } else {
-                panic!("Start square did not have a valid piece on it?")
+                Err("Start square had no piece on it".to_string())
             }
         }
         length => Err(format!("Invalid length passed: {}", length))
