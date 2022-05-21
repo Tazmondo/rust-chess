@@ -30,7 +30,7 @@ fn main() {
             println!("{}\n{}{}",clear_string, board.as_string(), msg);
         }
         msg.clear();
-        println!("{:?} Player, enter your next move. Examples: nf2; ng0f2; pe2; pe3; etc", board.turn);
+        println!("{:?} Player, enter your next move. Examples: nf3; ng1f3; pe3; pe4; etc", board.turn);
         let mut input_buffer: String = String::new();
 
         io::stdin()

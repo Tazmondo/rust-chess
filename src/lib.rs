@@ -103,20 +103,21 @@ impl Square {
     }
 
     fn from_str(coords: &[char]) -> Result<Square, String> {
+        println!("{:?}", coords);
         let column = match &coords[0] {
-            'a' | '0' => Ok(0),
-            'b' | '1' => Ok(1),
-            'c' | '2' => Ok(2),
-            'd' | '3' => Ok(3),
-            'e' | '4' => Ok(4),
-            'f' | '5' => Ok(5),
-            'g' | '6' => Ok(6),
-            'h' | '7' => Ok(7),
+            'a' | '1' => Ok(0),
+            'b' | '2' => Ok(1),
+            'c' | '3' => Ok(2),
+            'd' | '4' => Ok(3),
+            'e' | '5' => Ok(4),
+            'f' | '6' => Ok(5),
+            'g' | '7' => Ok(6),
+            'h' | '8' => Ok(7),
             _ => Err("Invalid column letter")
         }?;
-        let row = coords[1].to_digit(10).ok_or("Row was not a number")? as i32;
+        let row = coords[1].to_digit(10).ok_or("Row was not a number")? as i32 - 1;
         if !(0..=7).contains(&row) {
-            return Err(String::from("Row was not 0 to 7"));
+            return Err(String::from("Row was not 1 to 8"));
         }
 
         let index = (row * 8) + column;
@@ -140,6 +141,12 @@ impl Move {
             end: self.start,
         }
     }
+}
+
+pub enum GameState {
+    Playing,
+    Checkmate(Colour),
+    Stalemate
 }
 
 // Board indexes will start at bottom left.
@@ -174,10 +181,10 @@ impl Board {
 
     pub fn as_string(&self) -> String {
         let mut board_string = String::with_capacity(128);
-        board_string.push_str(&format!("{}", self.term_other.paint("0|")));
+        board_string.push_str(&format!("{}", self.term_other.paint("1|")));
         self.pieces.iter().enumerate().for_each(|(index, piece)| {
             if index % 8 == 0 && index != 0 {
-                board_string.push_str(&format!("\n{}", self.term_other.paint(format!("{}|", index / 8))))
+                board_string.push_str(&format!("\n{}", self.term_other.paint(format!("{}|", (index / 8) + 1))))
             } else if index == 0 {}
 
             let piece_char = match piece {
@@ -198,7 +205,7 @@ impl Board {
             board_string.push_str(&piece_char);
 
             if (index + 1) % 8 == 0 {
-                board_string.push_str(&format!("{}", self.term_other.paint(format!("|{}", index / 8))));
+                board_string.push_str(&format!("{}", self.term_other.paint(format!("|{}", (index / 8) + 1))));
             }
         });
 
@@ -229,7 +236,6 @@ impl Board {
             return Err(format!("It is currently {:?}'s turn!", self.turn));
         };
 
-        // Todo: checkmate
         let check = self.does_move_cause_check(_move);
         match check {
             Some(White) => return Err("White is in check!".to_string()),
@@ -238,7 +244,13 @@ impl Board {
         }
 
         self.execute_move(_move);
+        //todo: checkmate and stalemate
+
+        // Switch to perspective of opposing player
         self.turn = !self.turn;
+
+        // Check for checkmate before returning control to the player
+
         Ok(())
     }
 
@@ -291,6 +303,10 @@ impl Board {
         }
     }
 
+    // fn check_mate(&self) -> bool {
+    //
+    // }
+
     fn does_move_cause_check(&self, _move: Move) -> Option<Colour> {
         let mut new_board = *self;
         new_board.execute_move(_move);
@@ -307,10 +323,9 @@ fn get_blocked_line(line: &Vec<Coord>, piece_colour: &Colour, board: &Board) -> 
     line.iter()
         .filter(|v| validate_coord(*v))
         .take_while(|v| {
-            let space = board.pieces[Square::from_coord(*v).index as usize];
-            match space {
-                Empty => true,
-                Full(piece) => {
+            match board.piece_at_coord(v) {
+                None => true,
+                Some(piece) => {
                     // When find a piece, exclude all new pieces.
                     // Also if piece is of same colour, exclude it, but if piece is opposite then include
                     if piece_found { return false; };
@@ -486,9 +501,9 @@ fn get_piece_moves(piece: ColourPiece, index: i32, board: &Board) -> Vec<Move> {
     potential_coords.into_iter()
         .filter(|v| {
             if validate_coord(v) {
-                *v != coord && match board.pieces[Square::from_coord(v).index as usize] {
-                    Full(colour_piece) => colour_piece.colour != piece.colour,
-                    Empty => true,
+                *v != coord && match board.piece_at_coord(v) {
+                    Some(colour_piece) => colour_piece.colour != piece.colour,
+                    None => true,
                 }
             } else {
                 false
@@ -557,8 +572,7 @@ pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> 
                 };
                 if validate_move(new_move, board) {
                     Ok(new_move)
-                } else {
-                    Err("Move was invalid".to_string())
+                } else {                    Err("Move was invalid".to_string())
                 }
             } else {
                 panic!("Start square did not have a valid piece on it?")
