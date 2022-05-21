@@ -18,6 +18,9 @@ pub enum Piece {
     King,
 }
 
+use Piece::*;
+
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct ColourPiece {
     variant: Piece,
@@ -46,15 +49,14 @@ impl ColourPiece {
     }
 }
 
-use Piece::*;
-
-
+// Represents an arbitrary coordinate
 #[derive(PartialEq, Copy, Clone, Debug)]
-struct Coord {
+pub struct Coord {
     row: i32,
     column: i32,
 }
 
+// Represents a coordinate that actually exists on the board
 #[derive(PartialEq, Copy, Clone, Debug)]
 struct Square {
     coord: Coord,
@@ -124,6 +126,7 @@ pub struct Board {
 
     term_white: Style,
     term_black: Style,
+    term_other: Style
 }
 
 impl Default for Board {
@@ -139,8 +142,9 @@ impl Board {
             pieces: [Full(ColourPiece { variant: Rook, colour: White }), Full(ColourPiece { variant: Knight, colour: White }), Full(ColourPiece { variant: Bishop, colour: White }), Full(ColourPiece { variant: Queen, colour: White }), Full(ColourPiece { variant: King, colour: White }), Full(ColourPiece { variant: Bishop, colour: White }), Full(ColourPiece { variant: Knight, colour: White }), Full(ColourPiece { variant: Rook, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Rook, colour: Black }), Full(ColourPiece { variant: Knight, colour: Black }), Full(ColourPiece { variant: Bishop, colour: Black }), Full(ColourPiece { variant: Queen, colour: Black }), Full(ColourPiece { variant: King, colour: Black }), Full(ColourPiece { variant: Bishop, colour: Black }), Full(ColourPiece { variant: Knight, colour: Black }), Full(ColourPiece { variant: Rook, colour: Black }), ],
             turn: White,
 
-            term_white: Style::new().on(TermColour::Black).fg(TermColour::White),
-            term_black: Style::new().on(TermColour::White).fg(TermColour::Black),
+            term_black: Style::new().on(TermColour::RGB(35,35,35)).fg(TermColour::White),
+            term_white: Style::new().on(TermColour::RGB(155,155,155)).fg(TermColour::Black),
+            term_other: Style::new().fg(TermColour::Green),
         }
     }
 
@@ -195,6 +199,18 @@ impl Board {
         self.pieces[_move.start.index as usize] = Empty;
         Ok(())
     }
+
+    // Returns the piece at coord, or none if coord is invalid or square at coord is empty
+    pub fn piece_at_coord(&self, coord: &Coord) -> Option<ColourPiece> {
+        if validate_coord(coord) {
+            match self.pieces[Square::from_coord(coord).index as usize] {
+                Full(piece) => Some(piece),
+                Empty => None
+            }
+        } else {
+            None
+        }
+    }
 }
 
 fn validate_coord(coord: &Coord) -> bool {
@@ -212,7 +228,7 @@ fn get_blocked_line(line: &Vec<Coord>, piece_colour: &Colour, board: &Board) -> 
                 Full(piece) => {
                     // When find a piece, exclude all new pieces.
                     // Also if piece is of same colour, exclude it, but if piece is opposite then include
-                    if piece_found { return false };
+                    if piece_found { return false; };
                     piece_found = true;
 
                     &piece.colour != piece_colour
@@ -227,28 +243,60 @@ fn pawn_moves(colour: &Colour, coord: &Coord, board: &Board) -> Vec<Coord> {
     let row = coord.row;
     let column = coord.column;
 
-    match colour {
+    let (straight, diagonals) = match colour {
         White => {
-            let mut moves = Vec::with_capacity(2);
             let one_up = Coord { row: row + 1, column };
-            moves.push(one_up);
-            if row == 1 {
-                moves.push(Coord { row: row + 2, column });
-            }
+            let two_up = Coord { row: row + 2, column };
+            let north_east = Coord { row: row + 1, column: column + 1 };
+            let north_west = Coord { row: row + 1, column: column - 1 };
 
-            get_blocked_line(&moves, colour ,board)
+            if row == 1 {
+                (vec![one_up, two_up], vec![north_east, north_west])
+            } else {
+                (vec![one_up], vec![north_east, north_west])
+            }
         }
         Black => {
-            let mut moves = Vec::with_capacity(2);
             let one_down = Coord { row: row - 1, column };
-            moves.push(one_down);
-            if row == 6 {
-                moves.push(Coord { row: row - 2, column });
-            }
+            let two_down = Coord { row: row - 2, column };
+            let south_east = Coord { row: row - 1, column: column + 1 };
+            let south_west = Coord { row: row - 1, column: column - 1 };
 
-            get_blocked_line(&moves, colour, board)
+            if row == 6 {
+                (vec![one_down, two_down], vec![south_east, south_west])
+            } else {
+                (vec![one_down], vec![south_east, south_west])
+            }
         }
-    }
+    };
+
+    let opposite_colour = match colour {
+        White => Black,
+        Black => White
+    };
+
+    // Block on both colours, because a pawn cannot take forwards
+    let mut straight = get_blocked_line(
+        &get_blocked_line(&straight, colour, board),
+        &opposite_colour,
+        board);
+
+    let mut diagonals: Vec<Coord> = diagonals
+        .into_iter()
+        .filter(|v| {
+            // Only allow diagonals if pieces diagonally are opposite colour
+            match board.piece_at_coord(v) {
+                Some(piece) => piece.colour != *colour,
+                None => false
+            }
+        })
+        .collect();
+
+    let mut moves: Vec<Coord> = Vec::with_capacity(4);
+    moves.append(&mut straight);
+    moves.append(&mut diagonals);
+
+    moves
 }
 
 fn knight_moves(coord: &Coord, colour: &Colour, board: &Board) -> Vec<Coord> {
@@ -311,7 +359,7 @@ fn king_moves(coord: &Coord, colour: &Colour, board: &Board) -> Vec<Coord> {
     north_east.append(&mut north_west);
     north_east.append(&mut south_east);
     north_east.append(&mut south_west);
-    
+
     let mut right: Vec<Coord> = get_blocked_line(&(-1..2).map(|v| Coord { row, column: column + v }).collect(), colour, board);
     let mut up: Vec<Coord> = get_blocked_line(&(-1..2).map(|v| Coord { row: row + v, column }).collect(), colour, board);
     let mut down: Vec<Coord> = get_blocked_line(&(-1..2).map(|v| Coord { row: row - v, column }).collect(), colour, board);
@@ -319,11 +367,10 @@ fn king_moves(coord: &Coord, colour: &Colour, board: &Board) -> Vec<Coord> {
     right.append(&mut up);
     right.append(&mut down);
     right.append(&mut left);
-    
+
     north_east.append(&mut right);
-    
+
     north_east
-    
 }
 
 fn get_piece_moves(piece: ColourPiece, index: i32, board: &Board) -> Vec<Move> {
@@ -333,7 +380,6 @@ fn get_piece_moves(piece: ColourPiece, index: i32, board: &Board) -> Vec<Move> {
     let coord = Square::from_index(index).coord;
 
     let potential_coords: Vec<Coord> = match piece {
-        // todo: pawn diagonal attacking
         ColourPiece { variant: Pawn, colour } => pawn_moves(&colour, &coord, board),
 
         ColourPiece { variant: Knight, colour } => knight_moves(&coord, &colour, board),
@@ -385,7 +431,7 @@ fn locate_from_target_move(piece: &ColourPiece, desired_square: Square, board: &
                 false
             }
         })
-        .map(|(index, value)| Square::from_index(index as i32))
+        .map(|(index, ..)| Square::from_index(index as i32))
         .collect();
 
     match piece_matches.len() {
@@ -431,7 +477,6 @@ pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> 
             }
         }
         5 => {
-            let piece_type = ColourPiece::from_char(char_vec[0], board).ok_or_else(|| String::from("Invalid piece type"))?;
             let start_square = Square::from_str(&char_vec[1..3])?;
             let end_square = Square::from_str(&char_vec[3..5])?;
 
