@@ -1,4 +1,3 @@
-use std::io::Empty;
 use ansi_term::{Colour as TermColour, Style};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -175,9 +174,11 @@ impl Board {
         board_string.lines().rev().map(|line| String::from(line) + "\n").collect()
     }
 
-    pub fn move_piece(&self, _move: Move) -> Result<(), String> {
+    pub fn move_piece(&mut self, _move: Move) -> Result<(), String> {
         if !validate_move(_move, self) { return Err("Move was invalid...".to_string()); }
 
+        self.pieces[_move.end.index as usize] = Full(_move.piece);
+        self.pieces[_move.start.index as usize] = Empty;
         Ok(())
     }
 }
