@@ -65,8 +65,8 @@ use Space::*;
 // Represents an arbitrary coordinate
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub struct Coord {
-    row: i32,
-    column: i32,
+    pub row: i32,
+    pub column: i32,
 }
 
 // Represents a coordinate that actually exists on the board
@@ -231,7 +231,7 @@ impl Board {
     }
 
     pub fn move_piece(&mut self, _move: Move) -> Result<GameState, String> {
-        if !validate_move(_move, self) { return Err("Move was invalid...".to_string()); }
+        if !validate_move(_move, self) { return Err("move_piece: Move was invalid...".to_string()); }
         if self.turn != _move.piece.colour {
             return Err(format!("It is currently {:?}'s turn!", self.turn));
         };
@@ -331,14 +331,13 @@ impl Board {
             .copied()
             .collect();
 
-        let no_moves = moves.len() == 0;
+        let no_moves = moves.is_empty();
 
         if no_moves && self.in_check_state().is_some() {
             GameState::Checkmate(self.turn)
         } else if no_moves {
             GameState::Stalemate
         } else {
-            println!("{:#?}", moves);
             GameState::Playing
         }
     }
@@ -347,6 +346,24 @@ impl Board {
         let mut new_board = *self;
         new_board.execute_move(_move);
         new_board.in_check_state()
+    }
+
+    pub fn attempt_move_with_coords(&mut self, start: Coord, end: Coord) -> Result<GameState, String> {
+        if validate_coord(&start) && validate_coord(&end) {
+            let start = Square::from_coord(&start);
+            let end = Square::from_coord(&end);
+            let piece = self.piece_at_coord(&start.coord).ok_or_else(|| "Empty square used as start.".to_string())?;
+
+            let new_move = Move { piece, start, end };
+
+            if validate_move(new_move, self) {
+                self.move_piece(new_move)
+            } else {
+                Err("attempt_move: Move was invalid".to_string())
+            }
+        } else {
+            Err("attempt_move: Invalid coords passed".to_string())
+        }
     }
 }
 
@@ -581,6 +598,7 @@ fn locate_from_target_move(piece: &ColourPiece, desired_square: Square, board: &
 
 fn validate_move(_move: Move, board: &Board) -> bool {
     let valid_moves = get_piece_moves(_move.piece, _move.start.index, board);
+
     valid_moves.contains(&_move)
 }
 
@@ -609,12 +627,32 @@ pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> 
                 if validate_move(new_move, board) {
                     Ok(new_move)
                 } else {
-                    Err("Move was invalid".to_string())
+                    Err("parse_str_move: Move was invalid".to_string())
                 }
             } else {
                 panic!("Start square did not have a valid piece on it?")
             }
         }
+        // 4 => {
+        //     let start_square = Square::from_str(&char_vec[..2])?;
+        //     let end_square = Square::from_str(&char_vec[2..4])?;
+        //     let piece = match board.piece_at_coord(&start_square.coord) {
+        //         None => return Err("Start square did not contain a piece.".to_string()),
+        //         Some(piece) => piece
+        //     };
+        //
+        //     let new_move = Move {
+        //         piece,
+        //         start: start_square,
+        //         end: end_square
+        //     };
+        //
+        //     if validate_move(new_move, board) {
+        //         Ok(new_move)
+        //     } else {
+        //         Err("Move was invalid".to_string())
+        //     }
+        // }
         5 => {
             let start_square = Square::from_str(&char_vec[1..3])?;
             let end_square = Square::from_str(&char_vec[3..5])?;
@@ -628,13 +666,14 @@ pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> 
                 if validate_move(new_move, board) {
                     Ok(new_move)
                 } else {
-                    Err("Move was invalid".to_string())
+                    Err("parse_str: Move was invalid".to_string())
                 }
             } else {
                 Err("Start square had no piece on it".to_string())
             }
         }
-        length => Err(format!("Invalid length passed: {}", length))
+
+        any_length => Err(format!("Invalid length passed: {}", any_length))
     }
 }
 
