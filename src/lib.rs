@@ -1,3 +1,8 @@
+mod moves;
+use Colour::*;
+use Piece::*;
+use Space::*;
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Colour {
     White,
@@ -15,7 +20,6 @@ impl std::ops::Not for Colour {
     }
 }
 
-use Colour::*;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Piece {
@@ -27,7 +31,6 @@ pub enum Piece {
     King,
 }
 
-use Piece::*;
 
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -55,9 +58,6 @@ pub enum Space {
     Empty,
     Full(ColourPiece),
 }
-
-use Space::*;
-
 
 // Represents an arbitrary coordinate
 #[derive(PartialEq, Copy, Clone, Debug)]
@@ -178,7 +178,7 @@ impl Board {
     }
 
     pub fn move_piece(&mut self, _move: Move) -> Result<GameState, String> {
-        if !validate_move(_move, self) { return Err("move_piece: Move was invalid...".to_string()); }
+        if !self.validate_move(_move) { return Err("move_piece: Move was invalid...".to_string()); }
         if self.turn != _move.piece.colour {
             return Err(format!("It is currently {:?}'s turn!", self.turn));
         };
@@ -233,7 +233,7 @@ impl Board {
                 Empty => None,
                 Full(piece) => {
                     if piece.colour == colour {
-                        Some(get_piece_moves(*piece, index as i32, self))
+                        Some(self.get_piece_moves(*piece, index as i32))
                     } else {
                         None
                     }
@@ -302,7 +302,7 @@ impl Board {
 
             let new_move = Move { piece, start, end };
 
-            if validate_move(new_move, self) {
+            if self.validate_move(new_move) {
                 self.move_piece(new_move)
             } else {
                 Err("attempt_move: Move was invalid".to_string())
@@ -311,242 +311,71 @@ impl Board {
             Err("attempt_move: Invalid coords passed".to_string())
         }
     }
+
+    fn locate_from_target_move(&self, piece: &ColourPiece, desired_square: Square) -> Result<Square, String> {
+        let piece_matches: Vec<Square> = self.pieces
+            .iter()
+            .enumerate()
+            .filter(|(index, value)| {
+                if let Full(cpiece) = value {
+                    cpiece.variant == piece.variant
+                        && cpiece.colour == piece.colour
+                        && self.get_piece_moves(*cpiece, (*index) as i32)
+                        .iter()
+                        .map(|v| v.end)
+                        .any(|v| v == desired_square)
+                } else {
+                    false
+                }
+            })
+            .map(|(index, ..)| Square::from_index(index as i32))
+            .collect();
+
+        match piece_matches.len() {
+            0 => Err("No pieces can make that move.".to_string()),
+            1 => Ok(piece_matches[0]),
+            _ => Err("Try choosing a piece with a specific coordinate. E.g. rb3b5".to_string()),
+        }
+    }
+
+    fn get_piece_moves(&self, piece: ColourPiece, index: i32) -> Vec<Move> {
+        if !(0..=63).contains(&index) {
+            panic!("Index given was: {}, when max is 63.", index)
+        }
+        let coord = Square::from_index(index).coord;
+
+        let potential_coords: Vec<Coord> = moves::piece_moveset(piece, self, &coord);
+
+        potential_coords.into_iter()
+            .filter(|v| {
+                if validate_coord(v) {
+                    *v != coord && match self.piece_at_coord(v) {
+                        Some(colour_piece) => colour_piece.colour != piece.colour,
+                        None => true,
+                    }
+                } else {
+                    false
+                }
+            })
+            .map(|v| Move {
+                piece,
+                start: Square::from_coord(&coord),
+                end: Square::from_coord(&v),
+            })
+            .collect()
+    }
+
+    fn validate_move(&self, _move: Move) -> bool {
+        let valid_moves = self.get_piece_moves(_move.piece, _move.start.index);
+
+        valid_moves.contains(&_move)
+    }
 }
 
 fn validate_coord(coord: &Coord) -> bool {
     !(coord.column < 0 || coord.column > 7 || coord.row < 0 || coord.row > 7)
 }
 
-fn get_blocked_line(line: &Vec<Coord>, piece_colour: &Colour, board: &Board) -> Vec<Coord> {
-    let mut piece_found = false;
-    line.iter()
-        .filter(|v| validate_coord(*v))
-        .take_while(|v| {
-            match board.piece_at_coord(v) {
-                None => true,
-                Some(piece) => {
-                    // When find a piece, exclude all new pieces.
-                    // Also if piece is of same colour, exclude it, but if piece is opposite then include
-                    if piece_found { return false; };
-                    piece_found = true;
-
-                    &piece.colour != piece_colour
-                }
-            }
-        })
-        .cloned()
-        .collect()
-}
-
-fn pawn_moves(colour: &Colour, coord: &Coord, board: &Board) -> Vec<Coord> {
-    let row = coord.row;
-    let column = coord.column;
-
-    let (straight, diagonals) = match colour {
-        White => {
-            let one_up = Coord { row: row + 1, column };
-            let two_up = Coord { row: row + 2, column };
-            let north_east = Coord { row: row + 1, column: column + 1 };
-            let north_west = Coord { row: row + 1, column: column - 1 };
-
-            if row == 1 {
-                (vec![one_up, two_up], vec![north_east, north_west])
-            } else {
-                (vec![one_up], vec![north_east, north_west])
-            }
-        }
-        Black => {
-            let one_down = Coord { row: row - 1, column };
-            let two_down = Coord { row: row - 2, column };
-            let south_east = Coord { row: row - 1, column: column + 1 };
-            let south_west = Coord { row: row - 1, column: column - 1 };
-
-            if row == 6 {
-                (vec![one_down, two_down], vec![south_east, south_west])
-            } else {
-                (vec![one_down], vec![south_east, south_west])
-            }
-        }
-    };
-
-    let opposite_colour = match colour {
-        White => Black,
-        Black => White
-    };
-
-    // Block on both colours, because a pawn cannot take forwards
-    let mut straight = get_blocked_line(
-        &get_blocked_line(&straight, colour, board),
-        &opposite_colour,
-        board);
-
-    let mut diagonals: Vec<Coord> = diagonals
-        .into_iter()
-        .filter(|v| {
-            // Only allow diagonals if pieces diagonally are opposite colour
-            match board.piece_at_coord(v) {
-                Some(piece) => piece.colour != *colour,
-                None => false
-            }
-        })
-        .collect();
-
-    let mut moves: Vec<Coord> = Vec::with_capacity(4);
-    moves.append(&mut straight);
-    moves.append(&mut diagonals);
-
-    moves
-}
-
-fn knight_moves(coord: &Coord, colour: &Colour, board: &Board) -> Vec<Coord> {
-    let row = coord.row;
-    let column = coord.column;
-
-    vec![
-        Coord { row: row + 2, column: column + 1 },
-        Coord { row: row + 2, column: column - 1 },
-        Coord { row: row + 1, column: column + 2 },
-        Coord { row: row + 1, column: column - 2 },
-        Coord { row: row - 1, column: column + 2 },
-        Coord { row: row - 1, column: column - 2 },
-        Coord { row: row - 2, column: column + 1 },
-        Coord { row: row - 2, column: column - 1 },
-    ].into_iter().flat_map(|v| get_blocked_line(&vec![v], colour, board)).collect()
-}
-
-fn bishop_moves(coord: &Coord, colour: &Colour, board: &Board) -> Vec<Coord> {
-    let row = coord.row;
-    let column = coord.column;
-
-    let mut north_east: Vec<Coord> = get_blocked_line(&(1..8).map(|v| Coord { row: row + v, column: column + v }).collect(), colour, board);
-    let mut north_west: Vec<Coord> = get_blocked_line(&(1..8).map(|v| Coord { row: row + v, column: column - v }).collect(), colour, board);
-    let mut south_east: Vec<Coord> = get_blocked_line(&(1..8).map(|v| Coord { row: row - v, column: column + v }).collect(), colour, board);
-    let mut south_west: Vec<Coord> = get_blocked_line(&(1..8).map(|v| Coord { row: row - v, column: column - v }).collect(), colour, board);
-
-    north_east.append(&mut north_west);
-    north_east.append(&mut south_east);
-    north_east.append(&mut south_west);
-
-    north_east
-}
-
-fn rook_moves(coord: &Coord, colour: &Colour, board: &Board) -> Vec<Coord> {
-    let row = coord.row;
-    let column = coord.column;
-
-    let mut right: Vec<Coord> = get_blocked_line(&(1..8).map(|v| Coord { row, column: column + v }).collect(), colour, board);
-    let mut up: Vec<Coord> = get_blocked_line(&(1..8).map(|v| Coord { row: row + v, column }).collect(), colour, board);
-    let mut down: Vec<Coord> = get_blocked_line(&(1..8).map(|v| Coord { row: row - v, column }).collect(), colour, board);
-    let mut left: Vec<Coord> = get_blocked_line(&(1..8).map(|v| Coord { row, column: column - v }).collect(), colour, board);
-
-    right.append(&mut up);
-    right.append(&mut down);
-    right.append(&mut left);
-
-    right
-}
-
-fn king_moves(coord: &Coord, colour: &Colour, board: &Board) -> Vec<Coord> {
-    let row = coord.row;
-    let column = coord.column;
-
-    // Copy from rook and bishop
-    let mut north_east: Vec<Coord> = get_blocked_line(&(-1..2).map(|v| Coord { row: row + v, column: column + v }).collect(), colour, board);
-    let mut north_west: Vec<Coord> = get_blocked_line(&(-1..2).map(|v| Coord { row: row + v, column: column - v }).collect(), colour, board);
-    let mut south_east: Vec<Coord> = get_blocked_line(&(-1..2).map(|v| Coord { row: row - v, column: column + v }).collect(), colour, board);
-    let mut south_west: Vec<Coord> = get_blocked_line(&(-1..2).map(|v| Coord { row: row - v, column: column - v }).collect(), colour, board);
-    north_east.append(&mut north_west);
-    north_east.append(&mut south_east);
-    north_east.append(&mut south_west);
-
-    let mut right: Vec<Coord> = get_blocked_line(&(-1..2).map(|v| Coord { row, column: column + v }).collect(), colour, board);
-    let mut up: Vec<Coord> = get_blocked_line(&(-1..2).map(|v| Coord { row: row + v, column }).collect(), colour, board);
-    let mut down: Vec<Coord> = get_blocked_line(&(-1..2).map(|v| Coord { row: row - v, column }).collect(), colour, board);
-    let mut left: Vec<Coord> = get_blocked_line(&(-1..2).map(|v| Coord { row, column: column - v }).collect(), colour, board);
-    right.append(&mut up);
-    right.append(&mut down);
-    right.append(&mut left);
-
-    north_east.append(&mut right);
-
-    north_east
-}
-
-fn get_piece_moves(piece: ColourPiece, index: i32, board: &Board) -> Vec<Move> {
-    if !(0..=63).contains(&index) {
-        panic!("Index given was: {}, when max is 63.", index)
-    }
-    let coord = Square::from_index(index).coord;
-
-    let potential_coords: Vec<Coord> = match piece {
-        ColourPiece { variant: Pawn, colour } => pawn_moves(&colour, &coord, board),
-
-        ColourPiece { variant: Knight, colour } => knight_moves(&coord, &colour, board),
-
-        ColourPiece { variant: Bishop, colour } => bishop_moves(&coord, &colour, board),
-
-        ColourPiece { variant: Rook, colour } => rook_moves(&coord, &colour, board),
-
-        ColourPiece { variant: Queen, colour } =>
-            bishop_moves(&coord, &colour, board)
-                .into_iter()
-                .chain(
-                    rook_moves(&coord, &colour, board).into_iter()
-                ).collect(),
-
-        ColourPiece { variant: King, colour } => king_moves(&coord, &colour, board)
-    };
-
-    potential_coords.into_iter()
-        .filter(|v| {
-            if validate_coord(v) {
-                *v != coord && match board.piece_at_coord(v) {
-                    Some(colour_piece) => colour_piece.colour != piece.colour,
-                    None => true,
-                }
-            } else {
-                false
-            }
-        })
-        .map(|v| Move {
-            piece,
-            start: Square::from_coord(&coord),
-            end: Square::from_coord(&v),
-        })
-        .collect()
-}
-
-fn locate_from_target_move(piece: &ColourPiece, desired_square: Square, board: &Board) -> Result<Square, String> {
-    let piece_matches: Vec<Square> = board.pieces
-        .iter()
-        .enumerate()
-        .filter(|(index, value)| {
-            if let Full(cpiece) = value {
-                cpiece.variant == piece.variant
-                    && cpiece.colour == piece.colour
-                    && get_piece_moves(*cpiece, (*index) as i32, board)
-                    .iter()
-                    .map(|v| v.end)
-                    .any(|v| v == desired_square)
-            } else {
-                false
-            }
-        })
-        .map(|(index, ..)| Square::from_index(index as i32))
-        .collect();
-
-    match piece_matches.len() {
-        0 => Err("No pieces can make that move.".to_string()),
-        1 => Ok(piece_matches[0]),
-        _ => Err("Try choosing a piece with a specific coordinate. E.g. rb3b5".to_string()),
-    }
-}
-
-fn validate_move(_move: Move, board: &Board) -> bool {
-    let valid_moves = get_piece_moves(_move.piece, _move.start.index, board);
-
-    valid_moves.contains(&_move)
-}
 
 pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> {
     if !(move_string.is_ascii()) {
@@ -561,7 +390,7 @@ pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> 
             let piece_type = ColourPiece::from_char(char_vec[0], board).ok_or_else(|| String::from("Invalid piece type"))?;
             let end_square = Square::from_str(&char_vec[1..3])?;
 
-            let start_square = locate_from_target_move(&piece_type, end_square, board)?;
+            let start_square = board.locate_from_target_move(&piece_type, end_square)?;
 
             // Colour on the temporary piece_type variable is unreliable
             if let Full(actual_piece) = board.pieces[start_square.index as usize] {
@@ -570,7 +399,7 @@ pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> 
                     start: start_square,
                     end: end_square,
                 };
-                if validate_move(new_move, board) {
+                if board.validate_move(new_move) {
                     Ok(new_move)
                 } else {
                     Err("parse_str_move: Move was invalid".to_string())
@@ -609,7 +438,7 @@ pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> 
                     start: start_square,
                     end: end_square,
                 };
-                if validate_move(new_move, board) {
+                if board.validate_move(new_move) {
                     Ok(new_move)
                 } else {
                     Err("parse_str: Move was invalid".to_string())
