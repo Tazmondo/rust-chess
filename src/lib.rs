@@ -177,11 +177,30 @@ impl Board {
         self.pieces[_move.start.index as usize] = Empty;
     }
 
-    pub fn move_piece(&mut self, _move: Move) -> Result<GameState, String> {
+    pub fn move_piece(&mut self, mut _move: Move) -> Result<GameState, String> {
         if !self.validate_move(_move) { return Err("move_piece: Move was invalid...".to_string()); }
         if self.turn != _move.piece.colour {
             return Err(format!("It is currently {:?}'s turn!", self.turn));
         };
+
+        // Promotion   todo: allow for rook bishop and knight option
+        // Works because move functions dont check that
+        // the piece at start of move is the piece in move.piece
+        match _move.piece {
+            ColourPiece {variant: Pawn, colour: White} if _move.end.coord.row == 7 => {
+                _move.piece = ColourPiece {
+                    variant: Queen,
+                    colour: White
+                }
+            }
+            ColourPiece {variant: Pawn, colour: Black} if _move.end.coord.row == 0 => {
+                _move.piece = ColourPiece {
+                    variant: Queen,
+                    colour: Black
+                }
+            }
+            _ => {}
+        }
 
         let check = self.does_move_cause_check(_move);
         match check {
