@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 ansi_term = "0.12"
 crossterm = "0.23"
+eframe = "0.18.0"
 
 [target.'cfg(windows)'.dependencies]
 winapi-util = "0.1"

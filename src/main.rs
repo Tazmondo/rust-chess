@@ -1,6 +1,8 @@
 mod interface_terminal;
+mod interface_gui;
 
 
 fn main() {
-    interface_terminal::start_terminal();
+    interface_gui::launch_gui()
+    // interface_terminal::start_terminal();
 }
