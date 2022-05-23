@@ -1,4 +1,5 @@
 mod moves;
+
 use Colour::*;
 use Piece::*;
 use Space::*;
@@ -30,7 +31,6 @@ pub enum Piece {
     Queen,
     King,
 }
-
 
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -74,7 +74,7 @@ pub struct Square {
 }
 
 impl Square {
-    fn from_index(index: i32) -> Square {
+    pub fn from_index(index: i32) -> Square {
         if !(0..=63).contains(&index) {
             panic!("Invalid index passed: {}", index)
         }
@@ -88,7 +88,7 @@ impl Square {
         }
     }
 
-    fn from_coord(coord: &Coord) -> Square {
+    pub fn from_coord(coord: &Coord) -> Square {
         if coord.column < 0 || coord.column > 7 || coord.row < 0 || coord.row > 7 {
             panic!("Invalid row and/or column passed:\nrow: {}\ncolumn: {}", coord.row, coord.column)
         }
@@ -99,7 +99,7 @@ impl Square {
         }
     }
 
-    fn from_str(coords: &[char]) -> Result<Square, String> {
+    pub fn from_str(coords: &[char]) -> Result<Square, String> {
         let column = match &coords[0] {
             'a' | '1' => Ok(0),
             'b' | '2' => Ok(1),
@@ -166,7 +166,6 @@ impl Board {
             pieces: [Full(ColourPiece { variant: Rook, colour: White }), Full(ColourPiece { variant: Knight, colour: White }), Full(ColourPiece { variant: Bishop, colour: White }), Full(ColourPiece { variant: Queen, colour: White }), Full(ColourPiece { variant: King, colour: White }), Full(ColourPiece { variant: Bishop, colour: White }), Full(ColourPiece { variant: Knight, colour: White }), Full(ColourPiece { variant: Rook, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Rook, colour: Black }), Full(ColourPiece { variant: Knight, colour: Black }), Full(ColourPiece { variant: Bishop, colour: Black }), Full(ColourPiece { variant: Queen, colour: Black }), Full(ColourPiece { variant: King, colour: Black }), Full(ColourPiece { variant: Bishop, colour: Black }), Full(ColourPiece { variant: Knight, colour: Black }), Full(ColourPiece { variant: Rook, colour: Black }), ],
             turn: White,
 
-
         }
     }
 
@@ -187,16 +186,16 @@ impl Board {
         // Works because move functions dont check that
         // the piece at start of move is the piece in move.piece
         match _move.piece {
-            ColourPiece {variant: Pawn, colour: White} if _move.end.coord.row == 7 => {
+            ColourPiece { variant: Pawn, colour: White } if _move.end.coord.row == 7 => {
                 _move.piece = ColourPiece {
                     variant: Queen,
-                    colour: White
+                    colour: White,
                 }
             }
-            ColourPiece {variant: Pawn, colour: Black} if _move.end.coord.row == 0 => {
+            ColourPiece { variant: Pawn, colour: Black } if _move.end.coord.row == 0 => {
                 _move.piece = ColourPiece {
                     variant: Queen,
-                    colour: Black
+                    colour: Black,
                 }
             }
             _ => {}
