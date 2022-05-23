@@ -4,10 +4,13 @@ use chess::*;
 use eframe::egui;
 use eframe::egui::{InnerResponse, Vec2};
 use egui_extras::RetainedImage;
-use winapi_util::console::Intense::No;
 
 pub fn launch_gui() {
-    let options = eframe::NativeOptions::default();
+    let options = eframe::NativeOptions {
+        initial_window_size: Some(Vec2::new(480.0, 480.0)),
+        resizable: false,
+        ..Default::default()
+    };
 
     eframe::run_native(
         "Rust Chess",
@@ -90,10 +93,16 @@ impl App {
     }
 
     fn render_board(&self, ctx: &egui::Context, ui: &mut egui::Ui) -> InnerResponse<()> {
-        let pieces = self.board.pieces;
+        let pieces = &self.board.pieces;
+
         egui::Grid::new("board")
             .spacing(Vec2::new(0.0, 0.0))
             .show(ui, |ui| {
+                ui.style_mut().visuals.widgets.inactive.rounding = egui::Rounding::none();
+                ui.style_mut().visuals.widgets.hovered.rounding = egui::Rounding::none();
+                ui.style_mut().visuals.widgets.hovered.expansion = 2.0;
+                ui.style_mut().visuals.widgets.hovered.bg_stroke = egui::Stroke::new(4.0, egui::Color32::from_rgb(0, 170, 0));
+
                 pieces.iter().enumerate().for_each(|(index, space)| {
                     if index % 8 == 0 && index > 0 {
                         ui.end_row();
@@ -105,8 +114,17 @@ impl App {
 
                     let is_enabled = true; // For future conditional disabling
 
-                    ui.add_enabled(is_enabled, egui::widgets::ImageButton::new(self.get_asset(space).texture_id(ctx), piece_size));
+                    ui.add_visible_ui(true, |ui| {
+                        if index % 2 == ((index / 8) % 2) {
+                            ui.style_mut().visuals.widgets.inactive.bg_fill = egui::Color32::from_gray(165);
+                            ui.style_mut().visuals.widgets.hovered.bg_fill = egui::Color32::from_gray(165);
+                        } else {
+                            ui.style_mut().visuals.widgets.inactive.bg_fill = egui::Color32::from_gray(80);
+                            ui.style_mut().visuals.widgets.hovered.bg_fill = egui::Color32::from_gray(80);
+                        }
 
+                        ui.add_enabled(is_enabled, egui::widgets::ImageButton::new(self.get_asset(space).texture_id(ctx), piece_size));
+                    });
                 })
             })
     }
@@ -117,7 +135,6 @@ impl eframe::App for App {
         let board = &self.board;
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Chess");
             self.render_board(ctx, ui);
         });
     }
