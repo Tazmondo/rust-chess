@@ -69,12 +69,32 @@ impl Default for App {
 }
 
 impl App {
+    fn get_asset(&self, space: &Space) -> &RetainedImage {
+        match space {
+            Space::Full(piece) => match piece {
+                ColourPiece { variant: Piece::Pawn, colour: Colour::White } => &self.assets.white_pawn,
+                ColourPiece { variant: Piece::Pawn, colour: Colour::Black } => &self.assets.black_pawn,
+                ColourPiece { variant: Piece::Knight, colour: Colour::White } => &self.assets.white_knight,
+                ColourPiece { variant: Piece::Knight, colour: Colour::Black } => &self.assets.black_knight,
+                ColourPiece { variant: Piece::Bishop, colour: Colour::White } => &self.assets.white_bishop,
+                ColourPiece { variant: Piece::Bishop, colour: Colour::Black } => &self.assets.black_bishop,
+                ColourPiece { variant: Piece::Rook, colour: Colour::White } => &self.assets.white_rook,
+                ColourPiece { variant: Piece::Rook, colour: Colour::Black } => &self.assets.black_rook,
+                ColourPiece { variant: Piece::King, colour: Colour::White } => &self.assets.white_king,
+                ColourPiece { variant: Piece::King, colour: Colour::Black } => &self.assets.black_king,
+                ColourPiece { variant: Piece::Queen, colour: Colour::White } => &self.assets.white_queen,
+                ColourPiece { variant: Piece::Queen, colour: Colour::Black } => &self.assets.black_queen,
+            }
+            Space::Empty => &self.assets.empty
+        }
+    }
+
     fn render_board(&self, ctx: &egui::Context, ui: &mut egui::Ui) -> InnerResponse<()> {
         let pieces = self.board.pieces;
         egui::Grid::new("board")
             .spacing(Vec2::new(0.0, 0.0))
             .show(ui, |ui| {
-                pieces.iter().enumerate().for_each(|(index, piece)| {
+                pieces.iter().enumerate().for_each(|(index, space)| {
                     if index % 8 == 0 && index > 0 {
                         ui.end_row();
                     }
@@ -85,35 +105,8 @@ impl App {
 
                     let is_enabled = true; // For future conditional disabling
 
-                    match piece {
-                        Space::Full(piece) => match piece {
-                            ColourPiece { variant: Piece::Pawn, colour } => match colour {
-                                Colour::White => { ui.add_enabled(is_enabled, egui::widgets::ImageButton::new(self.assets.white_pawn.texture_id(ctx), piece_size)); }
-                                Colour::Black => { ui.add_enabled(is_enabled, egui::widgets::ImageButton::new(self.assets.black_pawn.texture_id(ctx), piece_size)); }
-                            },
-                            ColourPiece { variant: Piece::Bishop, colour } => match colour {
-                                Colour::White => { ui.add_enabled(is_enabled, egui::widgets::ImageButton::new(self.assets.white_bishop.texture_id(ctx), piece_size)); }
-                                Colour::Black => { ui.add_enabled(is_enabled, egui::widgets::ImageButton::new(self.assets.black_bishop.texture_id(ctx), piece_size)); }
-                            },
-                            ColourPiece { variant: Piece::Knight, colour } => match colour {
-                                Colour::White => { ui.add_enabled(is_enabled, egui::widgets::ImageButton::new(self.assets.white_knight.texture_id(ctx), piece_size)); }
-                                Colour::Black => { ui.add_enabled(is_enabled, egui::widgets::ImageButton::new(self.assets.black_knight.texture_id(ctx), piece_size)); }
-                            },
-                            ColourPiece { variant: Piece::Rook, colour } => match colour {
-                                Colour::White => { ui.add_enabled(is_enabled, egui::widgets::ImageButton::new(self.assets.white_rook.texture_id(ctx), piece_size)); }
-                                Colour::Black => { ui.add_enabled(is_enabled, egui::widgets::ImageButton::new(self.assets.black_rook.texture_id(ctx), piece_size)); }
-                            },
-                            ColourPiece { variant: Piece::King, colour } => match colour {
-                                Colour::White => { ui.add_enabled(is_enabled, egui::widgets::ImageButton::new(self.assets.white_king.texture_id(ctx), piece_size)); }
-                                Colour::Black => { ui.add_enabled(is_enabled, egui::widgets::ImageButton::new(self.assets.black_king.texture_id(ctx), piece_size)); }
-                            },
-                            ColourPiece { variant: Piece::Queen, colour } => match colour {
-                                Colour::White => { ui.add_enabled(is_enabled, egui::widgets::ImageButton::new(self.assets.white_queen.texture_id(ctx), piece_size)); }
-                                Colour::Black => { ui.add_enabled(is_enabled, egui::widgets::ImageButton::new(self.assets.black_queen.texture_id(ctx), piece_size)); }
-                            },
-                        },
-                        Space::Empty => { ui.add_enabled(is_enabled, egui::widgets::ImageButton::new(self.assets.empty.texture_id(ctx), piece_size)); }
-                    };
+                    ui.add_enabled(is_enabled, egui::widgets::ImageButton::new(self.get_asset(space).texture_id(ctx), piece_size));
+
                 })
             })
     }
