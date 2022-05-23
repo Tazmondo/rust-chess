@@ -356,7 +356,7 @@ impl Board {
         }
     }
 
-    fn get_piece_moves(&self, piece: ColourPiece, index: i32) -> Vec<Move> {
+    pub fn get_piece_moves(&self, piece: ColourPiece, index: i32) -> Vec<Move> {
         if !(0..=63).contains(&index) {
             panic!("Index given was: {}, when max is 63.", index)
         }
@@ -387,6 +387,13 @@ impl Board {
         let valid_moves = self.get_piece_moves(_move.piece, _move.start.index);
 
         valid_moves.contains(&_move)
+    }
+    
+    pub fn can_square_move(&self, space: &Space, square: &Square) -> bool {
+        match space {
+            Empty => false,
+            Full(piece) => !self.get_piece_moves(*piece, square.index).is_empty()
+        }
     }
 }
 

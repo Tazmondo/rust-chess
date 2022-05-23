@@ -71,6 +71,28 @@ impl Default for App {
     }
 }
 
+fn set_piece_style(style: &mut egui::Style, enabled: bool, index: usize) {
+    let mut colour = match index % 2 == ((index / 8) % 2) {
+        true => egui::Color32::from_gray(165),
+        false => egui::Color32::from_gray(80)
+
+    };
+
+    if enabled {
+        style.visuals.widgets.hovered.bg_stroke = egui::Stroke::new(3.0, egui::Color32::from_rgb(0, 150, 0));
+        style.visuals.widgets.hovered.expansion = 2.0;
+        colour = egui::Color32::from_rgb(colour.r() - 15, colour.g() + 40, colour.b() - 15);
+    } else {
+        style.visuals.widgets.hovered = style.visuals.widgets.inactive;
+        style.visuals.widgets.hovered.expansion = 4.0;
+        style.visuals.widgets.hovered.bg_stroke = egui::Stroke::new(0.0, egui::Color32::WHITE);
+    }
+
+    style.visuals.widgets.inactive.bg_fill = colour;
+    style.visuals.widgets.hovered.bg_fill = colour;
+
+}
+
 impl App {
     fn get_asset(&self, space: &Space) -> &RetainedImage {
         match space {
@@ -100,8 +122,6 @@ impl App {
             .show(ui, |ui| {
                 ui.style_mut().visuals.widgets.inactive.rounding = egui::Rounding::none();
                 ui.style_mut().visuals.widgets.hovered.rounding = egui::Rounding::none();
-                ui.style_mut().visuals.widgets.hovered.expansion = 2.0;
-                ui.style_mut().visuals.widgets.hovered.bg_stroke = egui::Stroke::new(4.0, egui::Color32::from_rgb(0, 170, 0));
 
                 pieces.iter().enumerate().for_each(|(index, space)| {
                     if index % 8 == 0 && index > 0 {
@@ -112,18 +132,13 @@ impl App {
 
                     let piece_size = Vec2::new(50.0, 50.0);
 
-                    let is_enabled = true; // For future conditional disabling
+                    let is_enabled = self.board.can_square_move(space, &Square::from_index(index as i32)); // For future conditional disabling
 
+                    // So that each button can have a different style.
+                    // There may be a better way of doing this
                     ui.add_visible_ui(true, |ui| {
-                        if index % 2 == ((index / 8) % 2) {
-                            ui.style_mut().visuals.widgets.inactive.bg_fill = egui::Color32::from_gray(165);
-                            ui.style_mut().visuals.widgets.hovered.bg_fill = egui::Color32::from_gray(165);
-                        } else {
-                            ui.style_mut().visuals.widgets.inactive.bg_fill = egui::Color32::from_gray(80);
-                            ui.style_mut().visuals.widgets.hovered.bg_fill = egui::Color32::from_gray(80);
-                        }
-
-                        ui.add_enabled(is_enabled, egui::widgets::ImageButton::new(self.get_asset(space).texture_id(ctx), piece_size));
+                        set_piece_style(ui.style_mut(), is_enabled, index);
+                        ui.add(egui::widgets::ImageButton::new(self.get_asset(space).texture_id(ctx), piece_size));
                     });
                 })
             })
