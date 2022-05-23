@@ -26,7 +26,12 @@ fn string_board(board: &Board) -> String {
     let term_white = Style::new().on(TermColour::RGB(155, 155, 155)).fg(TermColour::Black);
     let term_other = Style::new().fg(TermColour::Green);
 
+    let column_label = term_other.paint("   A  B  C  D  E  F  G  H \n");
+
     let mut board_string = String::with_capacity(128);
+    // Add letters at top
+    board_string.push_str(&format!("\n{}", column_label));
+
     board_string.push_str(&format!("{}", term_other.paint("1|")));
     board.pieces.iter().enumerate().for_each(|(index, piece)| {
         if index % 8 == 0 && index != 0 {
@@ -55,16 +60,12 @@ fn string_board(board: &Board) -> String {
         }
     });
 
-    let column_label = term_other.paint("   A  B  C  D  E  F  G  H \n");
-
-    // Add letters at top
-    board_string.push_str(&format!("\n{}", column_label));
 
     // Terminal displays top to bottom, but board is bottom to top. So lines must be reversed
-    board_string = board_string.lines().rev().map(|line| String::from(line) + "\n").collect();
+    // board_string = board_string.lines().rev().map(|line| String::from(line) + "\n").collect();
 
     //Add letters at bottom
-    board_string.push_str(&format!("{}\n", column_label));
+    board_string.push_str(&format!("\n{}\n", column_label));
 
     board_string
 }
@@ -95,7 +96,7 @@ pub fn start_terminal() {
         loop {
             if let Ok(event::Event::Mouse(MouseEvent {kind: event::MouseEventKind::Down(event::MouseButton::Left), row, column, ..})) = event::read() {
                 if (3..=10).contains(&row) && (3..=25).contains(&column) {
-                    let calculated_row = 10 - row;
+                    let calculated_row = row-3;
                     let calculated_column = ((column+1)/3) - 1;
 
                     if start == None {

@@ -48,24 +48,24 @@ fn pawn_moves(colour: &Colour, coord: &Coord, board: &Board) -> Vec<Coord> {
 
     let (straight, diagonals) = match colour {
         White => {
-            let one_up = Coord { row: row + 1, column };
-            let two_up = Coord { row: row + 2, column };
-            let north_east = Coord { row: row + 1, column: column + 1 };
-            let north_west = Coord { row: row + 1, column: column - 1 };
+            let one_up = Coord { row: row - 1, column };
+            let two_up = Coord { row: row - 2, column };
+            let north_east = Coord { row: row - 1, column: column + 1 };
+            let north_west = Coord { row: row - 1, column: column - 1 };
 
-            if row == 1 {
+            if row == 6 {
                 (vec![one_up, two_up], vec![north_east, north_west])
             } else {
                 (vec![one_up], vec![north_east, north_west])
             }
         }
         Black => {
-            let one_down = Coord { row: row - 1, column };
-            let two_down = Coord { row: row - 2, column };
-            let south_east = Coord { row: row - 1, column: column + 1 };
-            let south_west = Coord { row: row - 1, column: column - 1 };
+            let one_down = Coord { row: row + 1, column };
+            let two_down = Coord { row: row + 2, column };
+            let south_east = Coord { row: row + 1, column: column + 1 };
+            let south_west = Coord { row: row + 1, column: column - 1 };
 
-            if row == 6 {
+            if row == 0 {
                 (vec![one_down, two_down], vec![south_east, south_west])
             } else {
                 (vec![one_down], vec![south_east, south_west])

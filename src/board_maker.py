@@ -1,4 +1,4 @@
-default = "0rnbqkbnrppppppppeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee1pppppppprnbqkbnr"
+default = "1rnbqkbnrppppppppeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee0pppppppprnbqkbnr"
 
 def make_rust_board(inp):
     colour = "White"
