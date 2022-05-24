@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+use std::ops::Sub;
 use chess::*;
 use eframe::egui;
 use eframe::egui::{InnerResponse, Vec2};
@@ -75,7 +76,6 @@ fn set_piece_style(style: &mut egui::Style, enabled: bool, index: usize) {
     let mut colour = match index % 2 == ((index / 8) % 2) {
         true => egui::Color32::from_gray(165),
         false => egui::Color32::from_gray(80)
-
     };
 
     if enabled {
@@ -92,7 +92,6 @@ fn set_piece_style(style: &mut egui::Style, enabled: bool, index: usize) {
     style.visuals.widgets.inactive.bg_fill = colour;
     style.visuals.widgets.hovered.bg_fill = colour;
     style.visuals.widgets.active.bg_fill = colour;
-
 }
 
 impl App {
@@ -125,7 +124,7 @@ impl App {
                 ui.style_mut().visuals.widgets.inactive.rounding = egui::Rounding::none();
                 ui.style_mut().visuals.widgets.hovered.rounding = egui::Rounding::none();
 
-                pieces.iter().enumerate().for_each(|(index, space)| {
+                let response = pieces.iter().enumerate().fold(None, |acc: Option<egui::Response>, (index, space)| {
                     if index % 8 == 0 && index > 0 {
                         ui.end_row();
                     }
@@ -138,11 +137,38 @@ impl App {
 
                     // So that each button can have a different style.
                     // There may be a better way of doing this
-                    ui.add_visible_ui(true, |ui| {
+                    let response = ui.add_visible_ui(true, |ui| {
                         set_piece_style(ui.style_mut(), is_enabled, index);
-                        ui.add(egui::widgets::ImageButton::new(self.get_asset(space).texture_id(ctx), piece_size));
+                        ui.add(egui::widgets::ImageButton::new(self.get_asset(space).texture_id(ctx), piece_size).sense(egui::Sense::drag()))
                     });
-                })
+
+                    if let Space::Full(piece) = space {
+                        Some(response.inner)
+                    } else {
+                        None
+                    }
+                });
+
+                if let Some(response) = response {
+                    let drag_started = egui::Id::new("drag_started");
+                    type DragType = egui::Pos2;
+
+                    if response.drag_started() {
+                        ctx.data().insert_persisted(drag_started, response.interact_pointer_pos().unwrap());
+                    }
+                    if response.drag_released() {
+                        ctx.data().remove::<DragType>(drag_started);
+                    }
+                    if response.dragged() {
+                        let top_layer = ctx.memory().layer_ids().last().expect("Could not get top paint layer?");
+                        let painter = ctx.layer_painter(top_layer);
+                        let data = ctx.data().get_temp::<DragType>(drag_started);
+                        if let Some(pos) = data {
+                            painter.arrow(pos, response.interact_pointer_pos().unwrap().sub(pos), egui::Stroke::new(5.0, egui::Color32::GREEN));
+                        }
+                        // println!("Dragged: {:?}", piece)
+                    }
+                }
             })
     }
 }
@@ -151,8 +177,8 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let board = &self.board;
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            self.render_board(ctx, ui);
+        let response = egui::CentralPanel::default().show(ctx, |ui| {
+            self.render_board(ctx, ui)
         });
     }
 }
