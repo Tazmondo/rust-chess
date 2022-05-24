@@ -86,10 +86,12 @@ fn set_piece_style(style: &mut egui::Style, enabled: bool, index: usize) {
         style.visuals.widgets.hovered = style.visuals.widgets.inactive;
         style.visuals.widgets.hovered.expansion = 4.0;
         style.visuals.widgets.hovered.bg_stroke = egui::Stroke::new(0.0, egui::Color32::WHITE);
+        style.visuals.widgets.active = style.visuals.widgets.hovered;
     }
 
     style.visuals.widgets.inactive.bg_fill = colour;
     style.visuals.widgets.hovered.bg_fill = colour;
+    style.visuals.widgets.active.bg_fill = colour;
 
 }
 
