@@ -81,7 +81,7 @@ pub fn start_terminal() {
 
     const MOUSE_MODE: bool = true;
 
-    let mut premoves = VecDeque::from(vec!["pe3","pe6","qh5","pe5","bc4","pe4"]);
+    let mut premoves = VecDeque::from(vec!["pg6", "pg3", "bh6", "bh3", "nf6", "nf3"]);
     let mut premoves = VecDeque::new();
 
     let mut board = Board::new();
@@ -92,17 +92,17 @@ pub fn start_terminal() {
     if MOUSE_MODE {
         let mut start: Option<Coord> = None;
 
-        println!("{}\n{}{}",clear_string, string_board(&board), msg);
+        println!("{}\n{}{}", clear_string, string_board(&board), msg);
         loop {
-            if let Ok(event::Event::Mouse(MouseEvent {kind: event::MouseEventKind::Down(event::MouseButton::Left), row, column, ..})) = event::read() {
+            if let Ok(event::Event::Mouse(MouseEvent { kind: event::MouseEventKind::Down(event::MouseButton::Left), row, column, .. })) = event::read() {
                 if (3..=10).contains(&row) && (3..=25).contains(&column) {
-                    let calculated_row = row-3;
-                    let calculated_column = ((column+1)/3) - 1;
+                    let calculated_row = row - 3;
+                    let calculated_column = ((column + 1) / 3) - 1;
 
                     if start == None {
                         start = Some(Coord {
                             column: calculated_column as i32,
-                            row: calculated_row as i32
+                            row: calculated_row as i32,
                         });
                         // Todo: validate that this is a valid starting piece
                         // todo: highlight this piece on the board string
@@ -111,7 +111,7 @@ pub fn start_terminal() {
                         let start = start.take().unwrap();
                         let end = Coord {
                             row: calculated_row as i32,
-                            column: calculated_column as i32
+                            column: calculated_column as i32,
                         };
 
                         let state = board.attempt_move_with_coords(start, end);
@@ -121,14 +121,14 @@ pub fn start_terminal() {
                             Ok(state) => match state {
                                 GameState::Playing => {}
                                 GameState::Checkmate(colour) => {
-                                    println!("{}\n{}",clear_string, string_board(&board));
+                                    println!("{}\n{}", clear_string, string_board(&board));
                                     println!("{:?} wins!", !colour);
-                                    break
+                                    break;
                                 }
                                 GameState::Stalemate => {
-                                    println!("{}\n{}",clear_string, string_board(&board));
+                                    println!("{}\n{}", clear_string, string_board(&board));
                                     println!("Stalemate...");
-                                    break
+                                    break;
                                 }
                             }
                         }
@@ -144,7 +144,7 @@ pub fn start_terminal() {
             if cfg!(debug_assertions) {
                 println!("\n{}{}", string_board(&board), msg);
             } else {
-                println!("{}\n{}{}",clear_string, string_board(&board), msg);
+                println!("{}\n{}{}", clear_string, string_board(&board), msg);
             }
             msg.clear();
             println!("{:?} Player, enter your next move. Examples: nf3; ng1f3; pe3; pe4; etc", board.turn);
@@ -169,18 +169,18 @@ pub fn start_terminal() {
                             GameState::Playing => {}
                             GameState::Checkmate(colour) => {
                                 println!("{:?} wins!", !colour);
-                                break
+                                break;
                             }
                             GameState::Stalemate => {
                                 println!("Stalemate...");
-                                break
+                                break;
                             }
                         }
                     }
-                },
+                }
                 Err(err) => {
                     msg = format!("Command invalid: {}", err);
-                },
+                }
             }
         }
     }

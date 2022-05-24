@@ -1,6 +1,6 @@
 use crate::*;
 
-pub fn piece_moveset(piece: ColourPiece, board: &Board, coord: &Coord) -> Vec<Coord> {
+pub fn piece_moveset(piece: ColourPiece, board: &Board, coord: &Coord, exclude_castle: bool) -> Vec<Coord> {
     match piece {
         ColourPiece { variant: Pawn, colour } => pawn_moves(&colour, coord, board),
 
@@ -17,7 +17,7 @@ pub fn piece_moveset(piece: ColourPiece, board: &Board, coord: &Coord) -> Vec<Co
                     rook_moves(coord, &colour, board).into_iter()
                 ).collect(),
 
-        ColourPiece { variant: King, colour } => king_moves(coord, &colour, board)
+        ColourPiece { variant: King, colour } => king_moves(coord, &colour, board, exclude_castle)
     }
 }
 
@@ -150,7 +150,7 @@ fn rook_moves(coord: &Coord, colour: &Colour, board: &Board) -> Vec<Coord> {
     right
 }
 
-fn king_moves(coord: &Coord, colour: &Colour, board: &Board) -> Vec<Coord> {
+fn king_moves(coord: &Coord, colour: &Colour, board: &Board, exclude_castle: bool) -> Vec<Coord> {
     let row = coord.row;
     let column = coord.column;
 
@@ -172,6 +172,31 @@ fn king_moves(coord: &Coord, colour: &Colour, board: &Board) -> Vec<Coord> {
     right.append(&mut left);
 
     north_east.append(&mut right);
+
+    if !exclude_castle {
+        let mut castles = Vec::new();
+
+        match colour {
+            White => {
+                if board.can_castle(colour, CastleSide::King) {
+                    castles.push(Coord {row: 7, column: 6})
+                }
+                if board.can_castle(colour, CastleSide::Queen) {
+                    castles.push(Coord {row: 7, column: 2})
+                }
+            }
+            Black => {
+                if board.can_castle(colour, CastleSide::King) {
+                    castles.push(Coord {row: 0, column: 6})
+                }
+                if board.can_castle(colour, CastleSide::Queen) {
+                    castles.push(Coord {row: 0, column: 2})
+                }
+            }
+        };
+
+        north_east.append(&mut castles);
+    }
 
     north_east
 }

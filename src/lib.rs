@@ -32,6 +32,11 @@ pub enum Piece {
     King,
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum CastleSide {
+    King,
+    Queen,
+}
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct ColourPiece {
@@ -151,6 +156,8 @@ pub enum GameState {
 pub struct Board {
     pub pieces: [Space; 64],
     pub turn: Colour,
+    can_white_castle: [Option<CastleSide>; 2],
+    can_black_castle: [Option<CastleSide>; 2],
 }
 
 impl Default for Board {
@@ -165,7 +172,8 @@ impl Board {
             // Generated using python file
             pieces: [Full(ColourPiece { variant: Rook, colour: Black }), Full(ColourPiece { variant: Knight, colour: Black }), Full(ColourPiece { variant: Bishop, colour: Black }), Full(ColourPiece { variant: Queen, colour: Black }), Full(ColourPiece { variant: King, colour: Black }), Full(ColourPiece { variant: Bishop, colour: Black }), Full(ColourPiece { variant: Knight, colour: Black }), Full(ColourPiece { variant: Rook, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Full(ColourPiece { variant: Pawn, colour: Black }), Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Pawn, colour: White }), Full(ColourPiece { variant: Rook, colour: White }), Full(ColourPiece { variant: Knight, colour: White }), Full(ColourPiece { variant: Bishop, colour: White }), Full(ColourPiece { variant: Queen, colour: White }), Full(ColourPiece { variant: King, colour: White }), Full(ColourPiece { variant: Bishop, colour: White }), Full(ColourPiece { variant: Knight, colour: White }), Full(ColourPiece { variant: Rook, colour: White }), ],
             turn: White,
-
+            can_black_castle: [Some(CastleSide::Queen), Some(CastleSide::King)],
+            can_white_castle: [Some(CastleSide::Queen), Some(CastleSide::King)],
         }
     }
 
@@ -174,6 +182,23 @@ impl Board {
     fn execute_move(&mut self, _move: Move) {
         self.pieces[_move.end.index as usize] = Full(_move.piece);
         self.pieces[_move.start.index as usize] = Empty;
+
+        // Swap rook to new position during castle
+        if _move.piece.variant == King && _move.start.coord.column == 4 && (_move.end.coord.column == 2 || _move.end.coord.column == 6) {
+            let (old_rook, new_rook) = match _move.end.coord {
+                Coord { row, column: 6 } => {
+                    (Square::from_coord(&Coord { row, column: 7 }).index, Square::from_coord(&Coord { row, column: 5 }).index)
+                }
+                Coord { row, column: 2 } => {
+                    (Square::from_coord(&Coord { row, column: 0 }).index, Square::from_coord(&Coord { row, column: 3 }).index)
+                }
+                _ => {
+                    panic!("Unexpected rook position for castle: {:?}", _move)
+                }
+            };
+            self.pieces[new_rook as usize] = self.pieces[old_rook as usize];
+            self.pieces[old_rook as usize] = Empty;
+        };
     }
 
     pub fn move_piece(&mut self, mut _move: Move) -> Result<GameState, String> {
@@ -208,6 +233,28 @@ impl Board {
             _ => {}
         }
 
+        // Disable castling upon moving a rook/king
+        if _move.piece.variant == Rook && _move.start.coord.row == 0 {
+            let side = match _move.start.coord.column {
+                0 => Some(CastleSide::Queen),
+                7 => Some(CastleSide::King),
+                _ => None
+            };
+            if side.is_some() {
+                match (self.turn, side.unwrap()) {
+                    (White, CastleSide::Queen) => { self.can_white_castle[0] = None }
+                    (White, CastleSide::King) => { self.can_white_castle[1] = None }
+                    (Black, CastleSide::Queen) => { self.can_black_castle[0] = None }
+                    (Black, CastleSide::King) => { self.can_black_castle[1] = None }
+                }
+            }
+        } else if _move.piece.variant == King {
+            match self.turn {
+                White => self.can_white_castle = [None, None],
+                Black => self.can_black_castle = [None, None],
+            };
+        };
+
         self.execute_move(_move);
 
         // Switch to perspective of opposing player
@@ -231,12 +278,12 @@ impl Board {
 
     // Must be an option, as when checking for threats, it assumes that the piece will take the king
     // resulting in a board with no king when checking.
-    fn get_king(&self, colour: Colour) -> Option<Square> {
+    fn get_king(&self, colour: &Colour) -> Option<Square> {
         self.pieces.iter().enumerate().find_map(|(index, space)| {
             match space {
                 Empty => None,
                 Full(piece) => {
-                    if piece.colour == colour && piece.variant == King {
+                    if &piece.colour == colour && piece.variant == King {
                         Some(Square::from_index(index as i32))
                     } else { None }
                 }
@@ -244,14 +291,14 @@ impl Board {
         })
     }
 
-    fn get_possible_moves(&self, colour: Colour) -> Vec<Move> {
+    fn get_possible_moves(&self, colour: &Colour, exclude_castle: bool) -> Vec<Move> {
         self.pieces.iter()
             .enumerate()
             .filter_map(|(index, v)| match v {
                 Empty => None,
                 Full(piece) => {
-                    if piece.colour == colour {
-                        Some(self.get_piece_moves(*piece, index as i32))
+                    if &piece.colour == colour {
+                        Some(self.get_piece_moves(*piece, index as i32, exclude_castle))
                     } else {
                         None
                     }
@@ -261,24 +308,25 @@ impl Board {
             .collect()
     }
 
-    fn is_threatened(&self, target_piece: &ColourPiece, square: Square) -> bool {
-        self.get_possible_moves(!target_piece.colour).iter().any(|v| v.end == square)
+    fn is_threatened(&self, threatening_colour: &Colour, square: Square) -> bool {
+        let vec = self.get_possible_moves(threatening_colour, true);
+        vec.iter().any(|v| v.end == square)
     }
 
     fn in_check_state(&self) -> Option<Colour> {
-        let w_king = match self.get_king(White) {
+        let w_king = match self.get_king(&White) {
             Some(square) => square,
             None => return None
         };
 
-        let b_king = match self.get_king(Black) {
+        let b_king = match self.get_king(&Black) {
             Some(square) => square,
             None => return None
         };
 
-        if self.is_threatened(&ColourPiece { variant: King, colour: White }, w_king) && self.turn == White {
+        if self.is_threatened(&Black, w_king) && self.turn == White {
             Some(White)
-        } else if self.is_threatened(&ColourPiece { variant: King, colour: Black }, b_king) && self.turn == Black {
+        } else if self.is_threatened(&White, b_king) && self.turn == Black {
             Some(Black)
         } else {
             None
@@ -286,7 +334,7 @@ impl Board {
     }
 
     fn check_mate(&self) -> GameState {
-        let moves: Vec<Move> = self.get_possible_moves(self.turn)
+        let moves: Vec<Move> = self.get_possible_moves(&self.turn, false)
             .iter()
             .filter(|v| match self.does_move_cause_check(**v) {
                 None => true,
@@ -338,7 +386,7 @@ impl Board {
                 if let Full(cpiece) = value {
                     cpiece.variant == piece.variant
                         && cpiece.colour == piece.colour
-                        && self.get_piece_moves(*cpiece, (*index) as i32)
+                        && self.get_piece_moves(*cpiece, (*index) as i32, false)
                         .iter()
                         .map(|v| v.end)
                         .any(|v| v == desired_square)
@@ -356,13 +404,16 @@ impl Board {
         }
     }
 
-    pub fn get_piece_moves(&self, piece: ColourPiece, index: i32) -> Vec<Move> {
+    pub fn get_piece_moves(&self, piece: ColourPiece, index: i32, exclude_castle: bool) -> Vec<Move> {
         if !(0..=63).contains(&index) {
             panic!("Index given was: {}, when max is 63.", index)
         }
         let coord = Square::from_index(index).coord;
 
-        let potential_coords: Vec<Coord> = moves::piece_moveset(piece, self, &coord);
+        let potential_coords: Vec<Coord> = match piece.variant {
+            King => moves::piece_moveset(piece, self, &coord, exclude_castle),
+            _ => moves::piece_moveset(piece, self, &coord, false)
+        };
 
         potential_coords.into_iter()
             .filter(|v| {
@@ -384,16 +435,76 @@ impl Board {
     }
 
     fn validate_move(&self, _move: Move) -> bool {
-        let valid_moves = self.get_piece_moves(_move.piece, _move.start.index);
+        let valid_moves = self.get_piece_moves(_move.piece, _move.start.index, false);
 
         valid_moves.contains(&_move)
     }
-    
+
     pub fn can_square_move(&self, space: &Space, square: &Square) -> bool {
         match space {
             Empty => false,
-            Full(piece) => !self.get_piece_moves(*piece, square.index).is_empty()
+            Full(piece) => !self.get_piece_moves(*piece, square.index, false).is_empty() && piece.colour == self.turn
         }
+    }
+
+    fn can_castle(&self, colour: &Colour, side: CastleSide) -> bool {
+        match colour {
+            White => {
+                if !self.can_white_castle.contains(&Some(side)) {
+                    return false;
+                }
+            }
+            Black => {
+                if !self.can_black_castle.contains(&Some(side)) {
+                    return false;
+                }
+            }
+        }
+
+        // Last square of check squares is new position of rook
+        // Second last square of check squares is new position of king
+        let check_squares = match colour {
+            Black => {
+                match side {
+                    CastleSide::King => {
+                        vec![
+                            Square::from_index(5),
+                            Square::from_index(6),
+                        ]
+                    }
+                    CastleSide::Queen => {
+                        vec![
+                            Square::from_index(1),
+                            Square::from_index(2),
+                            Square::from_index(3),
+                        ]
+                    }
+                }
+            }
+            White => {
+                match side {
+                    CastleSide::King => {
+                        vec![
+                            Square::from_coord(&Coord { row: 7, column: 6 }),
+                            Square::from_coord(&Coord { row: 7, column: 5 }),
+                        ]
+                    }
+                    CastleSide::Queen => {
+                        vec![
+                            Square::from_coord(&Coord { row: 7, column: 1 }),
+                            Square::from_coord(&Coord { row: 7, column: 2 }),
+                            Square::from_coord(&Coord { row: 7, column: 3 }),
+                        ]
+                    }
+                }
+            }
+        };
+
+        // Make sure none of the squares are threatened
+        !check_squares.iter().any(|v| {
+            let threatened = self.is_threatened(&(!*colour), *v) || matches!(self.pieces[v.index as usize], Full(_piece));
+            threatened
+        })
     }
 }
 
