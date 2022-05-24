@@ -65,7 +65,7 @@ fn pawn_moves(colour: &Colour, coord: &Coord, board: &Board) -> Vec<Coord> {
             let south_east = Coord { row: row + 1, column: column + 1 };
             let south_west = Coord { row: row + 1, column: column - 1 };
 
-            if row == 0 {
+            if row == 1 {
                 (vec![one_down, two_down], vec![south_east, south_west])
             } else {
                 (vec![one_down], vec![south_east, south_west])
