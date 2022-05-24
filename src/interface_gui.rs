@@ -1,6 +1,5 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
-
-use std::ops::Sub;
+use std::cell::RefCell;
+use std::ops::{Add, Sub};
 use chess::*;
 use eframe::egui;
 use eframe::egui::{InnerResponse, Vec2};
@@ -18,6 +17,48 @@ pub fn launch_gui() {
         options,
         Box::new(|_cc| Box::new(App::default())),
     )
+}
+
+fn drop_target<R>(
+    ui: &mut egui::Ui,
+    can_accept_what_is_being_dragged: bool,
+    body: impl FnOnce(&mut egui::Ui) -> R,
+) -> InnerResponse<R> {
+    let is_being_dragged = ui.memory().is_anything_being_dragged();
+
+    let outer_rect_bounds = ui.available_rect_before_wrap();
+    let inner_rect = outer_rect_bounds;
+    let where_to_put_background = ui.painter().add(egui::Shape::Noop);
+    let mut content_ui = ui.child_ui(inner_rect, *ui.layout());
+    let ret = body(&mut content_ui);
+    let outer_rect = egui::Rect::from_min_max(outer_rect_bounds.min, content_ui.min_rect().max);
+    let (rect, response) = ui.allocate_at_least(outer_rect.size(), egui::Sense::hover());
+
+    let style = if is_being_dragged && can_accept_what_is_being_dragged && response.hovered() {
+        ui.visuals().widgets.active
+    } else {
+        ui.visuals().widgets.inactive
+    };
+
+    let mut fill = style.bg_fill;
+    let mut stroke = style.bg_stroke;
+    if is_being_dragged && !can_accept_what_is_being_dragged {
+        // gray out:
+        fill = egui::color::tint_color_towards(fill, ui.visuals().window_fill());
+        stroke.color = egui::color::tint_color_towards(stroke.color, ui.visuals().window_fill());
+    }
+
+    ui.painter().set(
+        where_to_put_background,
+        egui::epaint::RectShape {
+            rounding: style.rounding,
+            fill,
+            stroke,
+            rect,
+        },
+    );
+
+    InnerResponse::new(ret, response)
 }
 
 struct Assets {
@@ -72,21 +113,32 @@ impl Default for App {
     }
 }
 
-fn set_piece_style(style: &mut egui::Style, enabled: bool, index: usize) {
-    let mut colour = match index % 2 == ((index / 8) % 2) {
+fn colour_from_index(index: usize) -> egui::Color32 {
+    match index % 2 == ((index / 8) % 2) {
         true => egui::Color32::from_gray(165),
         false => egui::Color32::from_gray(80)
-    };
+    }
+}
+
+fn set_piece_style(style: &mut egui::Style, enabled: bool, index: usize) {
+    let mut colour = colour_from_index(index);
+
+    style.visuals.widgets.inactive.rounding = egui::Rounding::none();
+    style.visuals.widgets.hovered.rounding = egui::Rounding::none();
+    style.visuals.widgets.active.rounding = egui::Rounding::none();
 
     if enabled {
         style.visuals.widgets.hovered.bg_stroke = egui::Stroke::new(3.0, egui::Color32::from_rgb(0, 150, 0));
         style.visuals.widgets.hovered.expansion = 2.0;
         colour = egui::Color32::from_rgb(colour.r() - 15, colour.g() + 40, colour.b() - 15);
+        style.visuals.widgets.active = style.visuals.widgets.hovered;
     } else {
         style.visuals.widgets.hovered = style.visuals.widgets.inactive;
         style.visuals.widgets.hovered.expansion = 4.0;
         style.visuals.widgets.hovered.bg_stroke = egui::Stroke::new(0.0, egui::Color32::WHITE);
-        style.visuals.widgets.active = style.visuals.widgets.hovered;
+        // style.visuals.widgets.active = style.visuals.widgets.hovered;
+        style.visuals.widgets.active.expansion = 2.75;
+        style.visuals.widgets.active.bg_stroke = egui::Stroke::new(0.0, egui::Color32::WHITE);
     }
 
     style.visuals.widgets.inactive.bg_fill = colour;
@@ -115,16 +167,22 @@ impl App {
         }
     }
 
-    fn render_board(&self, ctx: &egui::Context, ui: &mut egui::Ui) -> InnerResponse<()> {
-        let pieces = &self.board.pieces;
+    fn render_board(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) -> InnerResponse<()> {
+        let board = &mut self.board;
+        let selected_square_id = egui::Id::new("selected_square");
+
+        let selected_square_option: Option<Square> = ctx.data().get_temp(selected_square_id);
+        let selected_pieces: Option<Vec<Square>> = match selected_square_option {
+            Some(square) => board.get_square_moves(square).map(|move_vec| move_vec.into_iter().map(|_move| _move.end).collect()),
+            None => None
+        };
+
+        let pieces = board.pieces;
 
         egui::Grid::new("board")
             .spacing(Vec2::new(0.0, 0.0))
             .show(ui, |ui| {
-                ui.style_mut().visuals.widgets.inactive.rounding = egui::Rounding::none();
-                ui.style_mut().visuals.widgets.hovered.rounding = egui::Rounding::none();
-
-                let response = pieces.iter().enumerate().fold(None, |acc: Option<egui::Response>, (index, space)| {
+                pieces.iter().enumerate().for_each(|(index, space)| {
                     if index % 8 == 0 && index > 0 {
                         ui.end_row();
                     }
@@ -133,42 +191,73 @@ impl App {
 
                     let piece_size = Vec2::new(50.0, 50.0);
 
-                    let is_enabled = self.board.can_square_move(space, &Square::from_index(index as i32)); // For future conditional disabling
+                    let square = Square::from_index(index as i32);
+                    let piece_id = egui::Id::new(square.index);
+
+                    let is_enabled = match &selected_pieces {
+                        Some(moves) => moves.contains(&square),
+                        None => self.board.can_square_move(space, &square)
+                    };
 
                     // So that each button can have a different style.
                     // There may be a better way of doing this
-                    let response = ui.add_visible_ui(true, |ui| {
-                        set_piece_style(ui.style_mut(), is_enabled, index);
-                        ui.add(egui::widgets::ImageButton::new(self.get_asset(space).texture_id(ctx), piece_size).sense(egui::Sense::drag()))
-                    });
+                    set_piece_style(ui.style_mut(), is_enabled, index);
 
-                    if let Space::Full(piece) = space {
-                        Some(response.inner)
-                    } else {
-                        None
-                    }
-                });
+                    let board_layer = ui.layer_id();
 
-                if let Some(response) = response {
-                    let drag_started = egui::Id::new("drag_started");
-                    type DragType = egui::Pos2;
+                    let response = if ui.memory().is_being_dragged(piece_id) {
+                        let layer_id = egui::LayerId::new(egui::Order::Tooltip, piece_id);
+                        let response = ui.with_layer_id(layer_id, |ui| ui.add(egui::widgets::ImageButton::new(self.get_asset(space).texture_id(ctx), piece_size).sense(egui::Sense::drag()).frame(false))).response;
 
-                    if response.drag_started() {
-                        ctx.data().insert_persisted(drag_started, response.interact_pointer_pos().unwrap());
-                    }
-                    if response.drag_released() {
-                        ctx.data().remove::<DragType>(drag_started);
-                    }
-                    if response.dragged() {
-                        let top_layer = ctx.memory().layer_ids().last().expect("Could not get top paint layer?");
-                        let painter = ctx.layer_painter(top_layer);
-                        let data = ctx.data().get_temp::<DragType>(drag_started);
-                        if let Some(pos) = data {
-                            painter.arrow(pos, response.interact_pointer_pos().unwrap().sub(pos), egui::Stroke::new(5.0, egui::Color32::GREEN));
+                        // Now we move the visuals of the body to where the mouse is.
+                        // Normally you need to decide a location for a widget first,
+                        // because otherwise that widget cannot interact with the mouse.
+                        // However, a dragged component cannot be interacted with anyway
+                        // (anything with `Order::Tooltip` always gets an empty [`Response`])
+                        // So this is fine!
+
+                        if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
+                            let delta = pointer_pos - response.rect.center();
+                            ui.ctx().translate_layer(layer_id, delta);
+                            ui.ctx().layer_painter(board_layer).rect_filled(egui::Rect::from_min_max(response.rect.min, response.rect.min.add(piece_size + Vec2::splat(8.0))), egui::Rounding::none(), colour_from_index(index));
                         }
-                        // println!("Dragged: {:?}", piece)
+                        response
+
+                    } else if ui.memory().is_anything_being_dragged() && is_enabled {
+                        drop_target(ui, is_enabled, |ui| {
+                            ui.add(egui::widgets::ImageButton::new(self.get_asset(space).texture_id(ctx), piece_size).sense(egui::Sense::drag()))
+                        }).response
+                    } else {
+                        ui.add(egui::widgets::ImageButton::new(self.get_asset(space).texture_id(ctx), piece_size).sense(egui::Sense::drag()))
+                    };
+
+                    if response.drag_started() && is_enabled {
+                        ui.memory().set_dragged_id(piece_id);
+                        ctx.data().insert_temp(selected_square_id, square);
                     }
-                }
+                    if ui.input().pointer.any_released() && response.hovered() && is_enabled {
+                        match ctx.data().get_temp::<Square>(selected_square_id) {
+                            Some(start_square) => {
+                                let new_move = Move {
+                                    piece: self.board.piece_at_coord(&start_square.coord).unwrap(),
+                                    start: start_square,
+                                    end: square
+                                };
+                                let result = self.board.move_piece(new_move);
+                                match result {
+                                    Ok(state) => println!("{state:?}"),
+                                    Err(msg) => println!("{msg}")
+                                };
+                            }
+                            None => {}
+                        }
+                    }
+
+                    if !ui.memory().is_anything_being_dragged() {
+                        ctx.data().remove::<Square>(selected_square_id);
+                    }
+
+                });
             })
     }
 }

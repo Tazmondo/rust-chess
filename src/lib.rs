@@ -129,9 +129,9 @@ impl Square {
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub struct Move {
-    piece: ColourPiece,
-    start: Square,
-    end: Square,
+    pub piece: ColourPiece,
+    pub start: Square,
+    pub end: Square,
 }
 
 impl Move {
@@ -144,6 +144,7 @@ impl Move {
     }
 }
 
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum GameState {
     Playing,
     Checkmate(Colour),
@@ -502,9 +503,12 @@ impl Board {
 
         // Make sure none of the squares are threatened
         !check_squares.iter().any(|v| {
-            let threatened = self.is_threatened(&(!*colour), *v) || matches!(self.pieces[v.index as usize], Full(_piece));
-            threatened
+            self.is_threatened(&(!*colour), *v) || matches!(self.pieces[v.index as usize], Full(_piece))
         })
+    }
+
+    pub fn get_square_moves(&self, square: Square) -> Option<Vec<Move>> {
+        self.piece_at_coord(&square.coord).map(|piece| self.get_piece_moves(piece, square.index, false))
     }
 }
 
