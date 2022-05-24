@@ -406,6 +406,7 @@ impl Board {
     }
 
     pub fn get_piece_moves(&self, piece: ColourPiece, index: i32, exclude_castle: bool) -> Vec<Move> {
+        // todo: only return moves that would not cause check
         if !(0..=63).contains(&index) {
             panic!("Index given was: {}, when max is 63.", index)
         }
@@ -524,7 +525,6 @@ pub fn parse_str_move(move_string: &str, board: &Board) -> Result<Move, String> 
 
     let char_vec: Vec<char> = move_string.chars().collect();
 
-    // Todo: castling
     match char_vec.len() {
         3 => {
             let piece_type = ColourPiece::from_char(char_vec[0], board).ok_or_else(|| String::from("Invalid piece type"))?;
